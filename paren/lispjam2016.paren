@@ -1,0 +1,66 @@
+;;;; -*- mode: lisp -*-
+
+(in-package :lispjam2016)
+
+(defmacro // (&rest rest)
+  `(chain ,@rest))
+
+(defmacro add-state (game state state-object)
+  `(// ,game state (add ,state ,state-object)))
+
+(defmacro change-state (game state)
+  `(// ,game state (start ,state)))
+
+(defmacro arcade-physics ()
+  `(// *Phaser *Physics *ARCADE*))
+
+(defmacro physics-start (game physics)
+  `(// ,game physics (start-system ,physics)))
+
+(defmacro load-image (game name uri)
+  `(// ,game load (image ,name ,uri)))
+
+(setf (// window onload) init)
+
+(defvar boot-state
+  (create
+   create (lambda (game)
+            (physics-start game (arcade-physics))
+            (change-state game "load")
+            nil)))
+
+(defvar load-state
+  (create
+   preload (lambda (game)
+             (load-image game "player" "assets/characters/cowboy.png")
+             nil)
+   create (lambda (game)
+            (change-state game "play")
+            nil)))
+
+(defvar menu-state
+  (create
+   ))
+
+(defvar play-state
+  (create
+   create (lambda (game)
+            (// game add (sprite 16 16 "player")))))
+
+(defvar win-state
+  (create
+   ))
+
+(defvar lose-state
+  (create
+   ))
+
+(defun init ()
+  (let ((game (new (// *Phaser (*Game 800 600 (// *Phaser *AUTO*) "game")))))
+    (add-state game "boot" boot-state)
+    (add-state game "load" load-state)
+    (add-state game "menu" menu-state)
+    (add-state game "play" play-state)
+    (add-state game "win" win-state)
+    (add-state game "lose" lose-state)
+    (change-state game "boot")))
