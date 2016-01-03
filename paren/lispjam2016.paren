@@ -1,0 +1,11 @@
+;;;; -*- mode: lisp -*-
+
+(in-package :lispjam2016)
+
+(defmacro load-image (game name uri)
+  `(chain ,game load (image ,name ,uri)))
+
+(setf (chain window onload) init)
+
+(defun init ()
+  (alert "Initial!"))
