@@ -8,6 +8,9 @@
 (defmacro /t (&rest args)
   `(// this ,@args))
 
+(defmacro /c (&rest args)
+  `(create ,@args))
+
 (defmacro add-state (game state state-object)
   `(// ,game state (add ,state ,state-object)))
 
@@ -32,23 +35,38 @@
 (defmacro add-animation (obj name frames frame-rate)
   `(// ,obj animations (add ,name ,frames ,frame-rate true)))
 
+(defmacro play-animation (obj name)
+  `(// ,obj animations (play ,name)))
+
+(defmacro stop-animation (obj)
+  `(// ,obj animations (stop null true)))
+
 (defmacro physics-enable (game obj)
   `(// ,game physics arcade (enable ,obj)))
 
 (defmacro create-cursors (game)
   `(// ,game input keyboard (create-cursor-keys)))
 
+(defmacro set-velocity (obj axis value)
+  `(setf (// ,obj body velocity ,axis) ,value))
+
+(defmacro key-down? (cursors key)
+  `(// ,cursors ,key is-down))
+
+(defmacro camera-follow (game obj)
+  `(// ,game camera (follow ,obj)))
+
 (setf (// window onload) init)
 
 (defvar boot-state
-  (create
+  (/c
    create (lambda (game)
             (physics-start game (arcade-physics))
             (change-state game "load")
             nil)))
 
 (defvar load-state
-  (create
+  (/c
    preload (lambda (game)
              (load-spritesheet game "player" "assets/characters/cowboy.png" 32 32)
              nil)
@@ -57,26 +75,67 @@
             nil)))
 
 (defvar menu-state
-  (create
+  (/c
    ))
 
+(defvar *player-velocity* 150)
+
+(defun player-move-down (player)
+  (set-velocity player y *player-velocity*)
+  (play-animation player "down")
+  nil)
+
+(defun player-move-up (player)
+  (set-velocity player y (- *player-velocity*))
+  (play-animation player "up")
+  nil)
+
+(defun player-move-right (player)
+  (set-velocity player x *player-velocity*)
+  (play-animation player "right")
+  nil)
+
+(defun player-move-left (player)
+  (set-velocity player x (- *player-velocity*))
+  (play-animation player "left")
+  nil)
+
+(defun player-stop (player)
+  (stop-animation player)
+  nil)
+
 (defvar play-state
-  (create
+  (/c
    player nil
    cursors nil
    create (lambda (game)
             (setf (/t player) (add-sprite game 16 16 "player"))
+            (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
             (add-animation (/t player) "down" '(0 1 2 3) 8)
-            (setf (/t cursors) (create-cursors game))
+            (add-animation (/t player) "up" '(4 5 6 7) 8)
+            (add-animation (/t player) "right" '(8 9 10 11) 8)
+            (add-animation (/t player) "left" '(12 13 14 15) 8)
+            (play-animation (/t player) "down")
+            (camera-follow game (/t player))
+            nil)
+   update (lambda (game)
+            (set-velocity (/t player) x 0)
+            (set-velocity (/t player) y 0)
+            (cond
+              ((key-down? (/t cursors) down) (player-move-down (/t player)))
+              ((key-down? (/t cursors) up) (player-move-up (/t player)))
+              ((key-down? (/t cursors) right) (player-move-right (/t player)))
+              ((key-down? (/t cursors) left) (player-move-left (/t player)))
+              (t (player-stop (/t player))))
             nil)))
 
 (defvar win-state
-  (create
+  (/c
    ))
 
 (defvar lose-state
-  (create
+  (/c
    ))
 
 (defun init ()
