@@ -2,8 +2,11 @@
 
 (in-package :lispjam2016)
 
-(defmacro // (&rest rest)
-  `(chain ,@rest))
+(defmacro // (&rest args)
+  `(chain ,@args))
+
+(defmacro /t (&rest args)
+  `(// this ,@args))
 
 (defmacro add-state (game state state-object)
   `(// ,game state (add ,state ,state-object)))
@@ -20,6 +23,21 @@
 (defmacro load-image (game name uri)
   `(// ,game load (image ,name ,uri)))
 
+(defmacro load-spritesheet (game name uri w h)
+  `(// ,game load (spritesheet ,name ,uri ,w ,h)))
+
+(defmacro add-sprite (game x y id)
+  `(// ,game add (sprite ,x ,y ,id)))
+
+(defmacro add-animation (obj name frames frame-rate)
+  `(// ,obj animations (add ,name ,frames ,frame-rate true)))
+
+(defmacro physics-enable (game obj)
+  `(// ,game physics arcade (enable ,obj)))
+
+(defmacro create-cursors (game)
+  `(// ,game input keyboard (create-cursor-keys)))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -32,7 +50,7 @@
 (defvar load-state
   (create
    preload (lambda (game)
-             (load-image game "player" "assets/characters/cowboy.png")
+             (load-spritesheet game "player" "assets/characters/cowboy.png" 32 32)
              nil)
    create (lambda (game)
             (change-state game "play")
@@ -44,8 +62,14 @@
 
 (defvar play-state
   (create
+   player nil
+   cursors nil
    create (lambda (game)
-            (// game add (sprite 16 16 "player")))))
+            (setf (/t player) (add-sprite game 16 16 "player"))
+            (physics-enable game (/t player))
+            (add-animation (/t player) "down" '(0 1 2 3) 8)
+            (setf (/t cursors) (create-cursors game))
+            nil)))
 
 (defvar win-state
   (create
