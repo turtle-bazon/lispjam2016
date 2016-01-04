@@ -56,6 +56,9 @@
 (defmacro camera-follow (game obj)
   `(// ,game camera (follow ,obj)))
 
+(defmacro load-map (game name uri)
+  `(// ,game load (tilemap ,name ,uri nil (// *Phaser *Tilemap *TILED_JSON*))))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -79,6 +82,8 @@
    ))
 
 (defvar *player-velocity* 150)
+
+(defvar *player-framerate* 8)
 
 (defun player-move-down (player)
   (set-velocity player y *player-velocity*)
@@ -112,10 +117,10 @@
             (setf (/t player) (add-sprite game 16 16 "player"))
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
-            (add-animation (/t player) "down" '(0 1 2 3) 8)
-            (add-animation (/t player) "up" '(4 5 6 7) 8)
-            (add-animation (/t player) "right" '(8 9 10 11) 8)
-            (add-animation (/t player) "left" '(12 13 14 15) 8)
+            (add-animation (/t player) "down" '(0 1 2 3) *player-framerate*)
+            (add-animation (/t player) "up" '(4 5 6 7) *player-framerate*)
+            (add-animation (/t player) "right" '(8 9 10 11) *player-framerate*)
+            (add-animation (/t player) "left" '(12 13 14 15) *player-framerate*)
             (play-animation (/t player) "down")
             (camera-follow game (/t player))
             nil)
