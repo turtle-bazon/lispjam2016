@@ -23,6 +23,9 @@
 (defmacro physics-start (game physics)
   `(// ,game physics (start-system ,physics)))
 
+(defmacro collide-objs (game obj1 obj2)
+  `(// ,game physics arcade (collide ,obj1 ,obj2)))
+
 (defmacro load-image (game name uri)
   `(// ,game load (image ,name ,uri)))
 
@@ -37,6 +40,9 @@
 
 (defmacro play-animation (obj name)
   `(// ,obj animations (play ,name)))
+
+(defmacro set-collide-world (obj)
+  `(setf (// ,obj body collide-world-bounds) true))
 
 (defmacro stop-animation (obj)
   `(// ,obj animations (stop null true)))
@@ -59,6 +65,21 @@
 (defmacro load-map (game name uri)
   `(// ,game load (tilemap ,name ,uri nil (// *Phaser *Tilemap *TILED_JSON*))))
 
+(defmacro add-tilemap (game name)
+  `(// ,game add (tilemap ,name)))
+
+(defmacro map-add-tileset-image (map map-name cache-name)
+  `(// ,map (add-tileset-image ,map-name ,cache-name)))
+
+(defmacro map-create-layer (map name)
+  `(// ,map (create-layer ,name)))
+
+(defmacro map-set-collision (map tiles layer)
+  `(// ,map (set-collision ,tiles true ,layer)))
+
+(defmacro layer-resize-world (layer)
+  `(// ,layer (resize-world)))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -72,6 +93,8 @@
   (/c
    preload (lambda (game)
              (load-spritesheet game "player" "assets/characters/cowboy.png" 32 32)
+             (load-map game "prery" "assets/maps/prery.json")
+             (load-image game "tiles-sand" "assets/tiles/sand.png")
              nil)
    create (lambda (game)
             (change-state game "play")
@@ -113,10 +136,17 @@
   (/c
    player nil
    cursors nil
+   layer nil
    create (lambda (game)
-            (setf (/t player) (add-sprite game 16 16 "player"))
+            (let ((map (add-tilemap game "prery")))
+              (map-add-tileset-image map "sand" "tiles-sand")
+              (setf (/t layer) (map-create-layer map "layer"))
+              (map-set-collision map '(6 7 8 9 10 11) (/t layer))
+              (layer-resize-world (/t layer)))
+            (setf (/t player) (add-sprite game 64 64 "player"))
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
+            (set-collide-world (/t player))
             (add-animation (/t player) "down" '(0 1 2 3) *player-framerate*)
             (add-animation (/t player) "up" '(4 5 6 7) *player-framerate*)
             (add-animation (/t player) "right" '(8 9 10 11) *player-framerate*)
@@ -125,6 +155,7 @@
             (camera-follow game (/t player))
             nil)
    update (lambda (game)
+            (collide-objs game (/t player) (/t layer))
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
