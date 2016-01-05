@@ -101,6 +101,10 @@
 (defvar load-state
   (/c
    preload (lambda (game)
+             (setf (@ game scale max-width) 1024)
+             (setf (@ game scale max-height) 768)
+             (setf (@ game scale scale-mode) (@ *Phaser *Scale-manager *SHOW_ALL*))
+             (// game scale (update-layout))
              (load-spritesheet game "player" "assets/characters/cowboy.png" 32 32)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
@@ -188,7 +192,7 @@
    ))
 
 (defun init ()
-  (let ((game (new (// *Phaser (*Game 800 600 (// *Phaser *AUTO*) "game")))))
+  (let ((game (new (// *Phaser (*Game 512 384 (// *Phaser *AUTO*) "game")))))
     (add-state game "boot" boot-state)
     (add-state game "load" load-state)
     (add-state game "menu" menu-state)
