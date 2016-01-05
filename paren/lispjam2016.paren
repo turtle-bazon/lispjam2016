@@ -89,6 +89,14 @@
 (defmacro layer-resize-world (layer)
   `(// ,layer (resize-world)))
 
+(defvar *tile-size* 64)
+
+(defun get-x (pos-x)
+  (* *tile-size* pos-x))
+
+(defun get-y (pos-y)
+  (* *tile-size* pos-y))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -98,14 +106,17 @@
             (change-state game "load")
             nil)))
 
+(defun scale-game ()
+  (setf (@ game scale max-width) 1024)
+  (setf (@ game scale max-height) 768)
+  (setf (@ game scale scale-mode) (@ *Phaser *Scale-manager *SHOW_ALL*))
+  (// game scale (update-layout)))
+
 (defvar load-state
   (/c
    preload (lambda (game)
-             (setf (@ game scale max-width) 1024)
-             (setf (@ game scale max-height) 768)
-             (setf (@ game scale scale-mode) (@ *Phaser *Scale-manager *SHOW_ALL*))
-             (// game scale (update-layout))
-             (load-spritesheet game "player" "assets/characters/cowboy.png" 32 32)
+             (load-spritesheet game "player" "assets/characters/cowboy.png"
+                               *tile-size* *tile-size*)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
              nil)
@@ -117,7 +128,7 @@
   (/c
    ))
 
-(defvar *player-velocity* 150)
+(defvar *player-velocity* 300)
 
 (defvar *player-framerate* 8)
 
@@ -160,7 +171,10 @@
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
               (layer-resize-world (/t layer)))
-            (setf (/t player) (add-sprite game 64 64 "player"))
+            (setf (/t player) (add-sprite game
+                                          (get-x 2)
+                                          (get-y 2)
+                                          "player"))
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
             (set-collide-world (/t player))
@@ -192,7 +206,7 @@
    ))
 
 (defun init ()
-  (let ((game (new (// *Phaser (*Game 512 384 (// *Phaser *AUTO*) "game")))))
+  (let ((game (new (// *Phaser (*Game 1024 768 (// *Phaser *AUTO*) "game")))))
     (add-state game "boot" boot-state)
     (add-state game "load" load-state)
     (add-state game "menu" menu-state)

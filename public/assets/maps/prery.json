@@ -18,13 +18,13 @@
 
     },
  "renderorder":"right-down",
- "tileheight":32,
+ "tileheight":64,
  "tilesets":[
         {
          "firstgid":1,
          "image":"..\/tiles\/sand.png",
-         "imageheight":32,
-         "imagewidth":416,
+         "imageheight":64,
+         "imagewidth":832,
          "margin":0,
          "name":"sand",
          "properties":
@@ -33,10 +33,10 @@
             },
          "spacing":0,
          "tilecount":13,
-         "tileheight":32,
-         "tilewidth":32
+         "tileheight":64,
+         "tilewidth":64
         }],
- "tilewidth":32,
+ "tilewidth":64,
  "version":1,
  "width":16
 }
