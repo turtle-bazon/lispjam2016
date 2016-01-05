@@ -38,8 +38,17 @@
 (defmacro add-animation (obj name frames frame-rate)
   `(// ,obj animations (add ,name ,frames ,frame-rate true)))
 
+(defmacro set-frame (obj id)
+  `(setf (// ,obj frame) ,id))
+
 (defmacro play-animation (obj name)
   `(// ,obj animations (play ,name)))
+
+(defmacro animation-frame (obj)
+  `(// ,obj animations frame))
+
+(defmacro paused-animation? (obj)
+  `(// ,obj animations paused))
 
 (defmacro set-collide-world (obj)
   `(setf (// ,obj body collide-world-bounds) true))
@@ -129,7 +138,11 @@
   nil)
 
 (defun player-stop (player)
-  (stop-animation player)
+  (unless (paused-animation? player)          
+    (stop-animation player)
+    (let* ((current-frame (animation-frame player))
+           (idle-frame (* 4 (// *Math (floor (/ current-frame 4))))))
+      (set-frame player idle-frame)))
   nil)
 
 (defvar play-state
@@ -147,10 +160,10 @@
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
             (set-collide-world (/t player))
-            (add-animation (/t player) "down" '(0 1 2 3) *player-framerate*)
-            (add-animation (/t player) "up" '(4 5 6 7) *player-framerate*)
-            (add-animation (/t player) "right" '(8 9 10 11) *player-framerate*)
-            (add-animation (/t player) "left" '(12 13 14 15) *player-framerate*)
+            (add-animation (/t player) "down" '(1 2 3 0) *player-framerate*)
+            (add-animation (/t player) "up" '(5 6 7 4) *player-framerate*)
+            (add-animation (/t player) "right" '(9 10 11 8) *player-framerate*)
+            (add-animation (/t player) "left" '(13 14 15 12) *player-framerate*)
             (play-animation (/t player) "down")
             (camera-follow game (/t player))
             nil)
