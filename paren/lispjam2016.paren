@@ -208,7 +208,7 @@
 
 (defvar *fire-interval* 500)
 (defvar *last-fire* 0)
-(defvar *bullet-velocity* 200)
+(defvar *bullet-velocity* 500)
 
 (defun fire (game player bullets)
   (when (and (<= (+ *last-fire* *fire-interval*) (@ game time now))
@@ -222,7 +222,12 @@
       (setf (@ bullet body velocity x)
             (* *bullet-velocity* (get-direction-x player)))
       (setf (@ bullet body velocity y)
-            (* *bullet-velocity* (get-direction-y player)))))
+            (* *bullet-velocity* (get-direction-y player)))
+      (setf (@ bullet angle) (cond
+                               ((= (get-direction-x player) 1) 0)
+                               ((= (get-direction-y player) 1) 90) 
+                               ((= (get-direction-x player) -1) 180)
+                               ((= (get-direction-y player) -1) 270)))))
   nil)
 
 (defvar play-state
@@ -251,7 +256,8 @@
                                           (get-x 2)
                                           (get-y 2)
                                           "player"))
-            (setf (@ (/t player) direction) (/c 1 0))
+            (setf (@ (/t player) direction) (/c x 0
+                                                y 1))
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
             (set-collide-world (/t player))
