@@ -68,6 +68,9 @@
 (defmacro key-down? (cursors key)
   `(// ,cursors ,key is-down))
 
+(defmacro keyboard-key-down? (game key)
+  `(// ,game input keyboard (is-down (@ *Phaser *Keyboard ,key))))
+
 (defmacro camera-follow (game obj)
   `(// ,game camera (follow ,obj)))
 
@@ -92,11 +95,30 @@
 (defmacro map-create-from-tiles (map tiles replacement key layer group)
   `(// ,map (create-from-tiles ,tiles ,replacement ,key ,layer ,group)))
 
+(defmacro add-group (game)
+  `(// ,game add (group)))
+
 (defmacro add-physics-group (game)
   `(// ,game add (physics-group)))
 
 (defmacro physics-overlap? (game obj1 obj2 handler process context)
   `(// ,game physics arcade (overlap ,obj1 ,obj2 ,handler ,process ,context)))
+
+(defmacro obj-create-multiple (obj count id)
+  `(// ,obj (create-multiple ,count ,id)))
+
+(defmacro obj-set-all (obj prop value)
+  `(// ,obj (set-all ,prop ,value)))
+
+(defmacro get-direction-x (obj)
+  `(@ ,obj direction x))
+
+(defmacro get-direction-y (obj)
+  `(@ ,obj direction y))
+
+(defun set-direction (obj x y)
+  (setf (@ obj direction "x") x)
+  (setf (@ obj direction "y") y))
 
 (defvar *tile-size* 64)
 
@@ -126,6 +148,9 @@
    preload (lambda (game)
              (load-spritesheet game "player" "assets/characters/cowboy.png"
                                *tile-size* *tile-size*)
+             (load-spritesheet game "zombie-melee" "assets/characters/zombie-melee.png"
+                               *tile-size* *tile-size*)
+             (load-image game "bullet" "assets/characters/bullet.png")
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
              nil)
@@ -141,24 +166,30 @@
 
 (defvar *player-framerate* 8)
 
+
+
 (defun player-move-down (player)
   (set-velocity player y *player-velocity*)
   (play-animation player "down")
+  (set-direction player 0 1)
   nil)
 
 (defun player-move-up (player)
   (set-velocity player y (- *player-velocity*))
   (play-animation player "up")
+  (set-direction player 0 -1)
   nil)
 
 (defun player-move-right (player)
   (set-velocity player x *player-velocity*)
   (play-animation player "right")
+  (set-direction player 1 0)
   nil)
 
 (defun player-move-left (player)
   (set-velocity player x (- *player-velocity*))
   (play-animation player "left")
+  (set-direction player -1 0)
   nil)
 
 (defun player-stop (player)
@@ -169,9 +200,29 @@
       (set-frame player idle-frame)))
   nil)
 
-(defun enter-portal (player portal)
+(defun bullet-hit-enemy (bullet enemy)
   ;; TODO move to new location and generate enemies
-  (// portal (kill))
+  (// bullet (kill))
+  (// enemy (kill))
+  nil)
+
+(defvar *fire-interval* 500)
+(defvar *last-fire* 0)
+(defvar *bullet-velocity* 200)
+
+(defun fire (game player bullets)
+  (when (and (<= (+ *last-fire* *fire-interval*) (@ game time now))
+             (< 0 (// bullets (count-dead))))
+    (setf *last-fire* (@ game time now))
+    (let ((bullet (// bullets (get-first-dead))))
+      (// bullet (reset (+ (@ player x)
+                           (/ (@ player width) 2))
+                        (+ (@ player y)
+                           (/ (@ player height) 2))))
+      (setf (@ bullet body velocity x)
+            (* *bullet-velocity* (get-direction-x player)))
+      (setf (@ bullet body velocity y)
+            (* *bullet-velocity* (get-direction-y player)))))
   nil)
 
 (defvar play-state
@@ -179,19 +230,28 @@
    player nil
    cursors nil
    layer nil
-   portals nil
+   zombies-melee nil
+   bullets nil
    create (lambda (game)
             (let ((map (add-tilemap game "prery")))
               (map-add-tileset-image map "sand" "tiles-sand")
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
               (layer-resize-world (/t layer))
-              (setf (/t portals) (add-physics-group game))
-              (map-create-from-tiles map 4 nil "player" (/t layer) (/t portals)))
+              (setf (/t zombies-melee) (add-physics-group game))
+              (map-create-from-tiles map 4 nil "zombie-melee"
+                                     (/t layer) (/t zombies-melee))
+              (setf (/t bullets) (add-physics-group game))
+              (obj-create-multiple (/t bullets) 30 "bullet")
+              (obj-set-all (/t bullets) "anchor.x" 0.5)
+              (obj-set-all (/t bullets) "anchor.y" 0.5)
+              (obj-set-all (/t bullets) "outOfBoundsKill" true)
+              (obj-set-all (/t bullets) "checkWorldBounds" true))
             (setf (/t player) (add-sprite game
                                           (get-x 2)
                                           (get-y 2)
                                           "player"))
+            (setf (@ (/t player) direction) (/c 1 0))
             (setf (/t cursors) (create-cursors game))
             (physics-enable game (/t player))
             (set-collide-world (/t player))
@@ -204,7 +264,8 @@
             nil)
    update (lambda (game)
             (collide-objs game (/t player) (/t layer))
-            (physics-overlap? game (/t player) (/t portals) enter-portal nil nil)
+            (physics-overlap? game (/t bullets) (/t zombies-melee)
+                              bullet-hit-enemy nil nil)
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
@@ -213,6 +274,8 @@
               ((key-down? (/t cursors) right) (player-move-right (/t player)))
               ((key-down? (/t cursors) left) (player-move-left (/t player)))
               (t (player-stop (/t player))))
+            (when (keyboard-key-down? game *SPACEBAR*)
+                (fire game (/t player) (/t bullets)))
             nil)))
 
 (defvar win-state
