@@ -89,6 +89,15 @@
 (defmacro layer-resize-world (layer)
   `(// ,layer (resize-world)))
 
+(defmacro map-create-from-tiles (map tiles replacement key layer group)
+  `(// ,map (create-from-tiles ,tiles ,replacement ,key ,layer ,group)))
+
+(defmacro add-physics-group (game)
+  `(// ,game add (physics-group)))
+
+(defmacro physics-overlap? (game obj1 obj2 handler process context)
+  `(// ,game physics arcade (overlap ,obj1 ,obj2 ,handler ,process ,context)))
+
 (defvar *tile-size* 64)
 
 (defun get-x (pos-x)
@@ -160,17 +169,25 @@
       (set-frame player idle-frame)))
   nil)
 
+(defun enter-portal (player portal)
+  ;; TODO move to new location and generate enemies
+  (// portal (kill))
+  nil)
+
 (defvar play-state
   (/c
    player nil
    cursors nil
    layer nil
+   portals nil
    create (lambda (game)
             (let ((map (add-tilemap game "prery")))
               (map-add-tileset-image map "sand" "tiles-sand")
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
-              (layer-resize-world (/t layer)))
+              (layer-resize-world (/t layer))
+              (setf (/t portals) (add-physics-group game))
+              (map-create-from-tiles map 4 nil "player" (/t layer) (/t portals)))
             (setf (/t player) (add-sprite game
                                           (get-x 2)
                                           (get-y 2)
@@ -187,6 +204,7 @@
             nil)
    update (lambda (game)
             (collide-objs game (/t player) (/t layer))
+            (physics-overlap? game (/t player) (/t portals) enter-portal nil nil)
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
