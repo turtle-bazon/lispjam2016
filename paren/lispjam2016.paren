@@ -189,6 +189,7 @@
 (defvar *player-framerate* 8)
 (defvar *zombie-melee-velocity* 10)
 (defvar *zombie-melee-framerate* 2)
+(defvar *zombie-range-framerate* 2)
 
 
 (defun player-move-down (player)
@@ -284,9 +285,9 @@
      (add-animation ,player "left" '(13 14 15 12) *player-framerate*)
      (play-animation ,player "down")))
 
-(defmacro create-zombie-range (group x y)
+(defmacro create-zombie-melee (group x y)
   `(progn
-     (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
+     (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-melee")))
        (add-animation zombie "down" '(0 1 2 3) *zombie-melee-framerate*)
        (add-animation zombie "down-attack" '(4 5) *zombie-melee-framerate*)
        (add-animation zombie "up" '(6 7 8 9) *zombie-melee-framerate*)
@@ -295,6 +296,18 @@
        (add-animation zombie "right-attack" '(16 17) *zombie-melee-framerate*)
        (add-animation zombie "left" '(18 19 20 21) *zombie-melee-framerate*)
        (add-animation zombie "left-attack" '(22 23) *zombie-melee-framerate*))))
+
+(defmacro create-zombie-range (group x y)
+  `(progn
+     (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
+       (add-animation zombie "down" '(0 1 2 3) *zombie-range-framerate*)
+       (add-animation zombie "down-attack" '(4 5) *zombie-range-framerate*)
+       (add-animation zombie "up" '(6 7 8 9) *zombie-range-framerate*)
+       (add-animation zombie "up-attack" '(10 11) *zombie-range-framerate*)
+       (add-animation zombie "right" '(12 13 14 15) *zombie-range-framerate*)
+       (add-animation zombie "right-attack" '(16 17) *zombie-range-framerate*)
+       (add-animation zombie "left" '(18 19 20 21) *zombie-range-framerate*)
+       (add-animation zombie "left-attack" '(22 23) *zombie-range-framerate*))))
 
 (defvar play-state
   (/c
@@ -313,14 +326,18 @@
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
               (let ((tiles (layer-all-tiles (/t layer)))
+                    (zombie-melee-group (/t zombies-melee))
                     (zombie-range-group (/t zombies-range)))
                 (f-loop tiles (lambda (tile)
-                                (when (= (tile-index tile) 3)
-                                  (create-zombie-range zombie-range-group
-                                                       (obj-x tile) (obj-y tile))
-                                  nil))))
-              (map-create-from-tiles map 4 nil "zombie-melee"
-                                     (/t layer) (/t zombies-melee))
+                                (cond
+                                  ((= (tile-index tile) 3)
+                                   (create-zombie-range zombie-range-group
+                                                        (obj-x tile) (obj-y tile)))
+                                  ((= (tile-index tile) 4)
+                                   (create-zombie-melee zombie-melee-group
+                                                        (obj-x tile) (obj-y tile)))
+                                  (t nil))
+                                nil)))
               (setf (/t bullets) (add-physics-group game))
               (obj-create-multiple (/t bullets) 30 "bullet")
               (obj-set-all (/t bullets) "anchor.x" 0.5)
@@ -349,6 +366,7 @@
             (collide-objs game (/t zombies-melee) (/t zombies-melee))
             (collide-objs game (/t zombies-range) (/t layer))
             (collide-objs game (/t zombies-range) (/t zombies-range))
+            (collide-objs game (/t zombies-melee) (/t zombies-range))
             (collide-objs game (/t bullets) (/t layer) bullet-hit-wall)
             (physics-overlap? game (/t bullets) (/t zombies-melee)
                               bullet-hit-enemy nil nil)
