@@ -284,7 +284,7 @@
      (add-animation ,player "left" '(13 14 15 12) *player-framerate*)
      (play-animation ,player "down")))
 
-(defmacro create-zombie-range (game group x y)
+(defmacro create-zombie-range (group x y)
   `(progn
      (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
        (add-animation zombie "down" '(0 1 2 3) *zombie-melee-framerate*)
@@ -316,7 +316,7 @@
                     (zombie-range-group (/t zombies-range)))
                 (f-loop tiles (lambda (tile)
                                 (when (= (tile-index tile) 3)
-                                  (create-zombie-range game zombie-range-group
+                                  (create-zombie-range zombie-range-group
                                                        (obj-x tile) (obj-y tile))
                                   nil))))
               (map-create-from-tiles map 4 nil "zombie-melee"
