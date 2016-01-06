@@ -341,19 +341,15 @@
               (layer-resize-world (/t layer))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
-              (let ((tiles (layer-all-tiles (/t layer)))
-                    (zombie-melee-group (/t zombies-melee))
-                    (zombie-range-group (/t zombies-range)))
-                (f-loop tiles (lambda (tile)
-                                (cond
-                                  ((= (tile-index tile) 3)
-                                   (create-zombie-range zombie-range-group
-                                                        (obj-x tile) (obj-y tile)))
-                                  ((= (tile-index tile) 4)
-                                   (create-zombie-melee zombie-melee-group
-                                                        (obj-x tile) (obj-y tile)))
-                                  (t nil))
-                                nil)))
+              (loop for tile in (layer-all-tiles (/t layer))
+                 do (cond
+                      ((= (tile-index tile) 3)
+                       (create-zombie-range (/t zombies-range)
+                                            (obj-x tile) (obj-y tile)))
+                      ((= (tile-index tile) 4)
+                       (create-zombie-melee (/t zombies-melee)
+                                            (obj-x tile) (obj-y tile)))
+                      (t nil)))
               (setf (/t bullets) (add-physics-group game))
               (obj-create-multiple (/t bullets) 30 "bullet")
               (obj-set-all (/t bullets) "anchor.x" 0.5)
