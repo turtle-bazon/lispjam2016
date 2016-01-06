@@ -188,6 +188,7 @@
 (defvar *player-velocity* 300)
 (defvar *player-framerate* 8)
 (defvar *zombie-melee-velocity* 10)
+(defvar *zombie-range-velocity* 8)
 (defvar *zombie-melee-framerate* 2)
 (defvar *zombie-range-framerate* 2)
 
@@ -269,9 +270,24 @@
   ;; (setf (@ zombie body velocity x) *zombie-melee-velocity*)
   )
 
+(defun update-zombie-range (game zombie player)
+  (let ((angle (// game physics arcade (move-to-object zombie player *zombie-range-velocity*))))
+    
+    (cond
+      ((or (< angle -2.36) (>= angle 2.36)) (play-animation zombie "left"))
+      ((< angle -0.79) (play-animation zombie "up"))
+      ((< angle 0.79) (play-animation zombie "right"))
+      (true (play-animation zombie "down"))))
+  ;; (setf (@ zombie body velocity x) *zombie-melee-velocity*)
+  )
+
 (defun update-zombies-melee (game zombies player)
   (loop for zombie in (@ zombies children)
        do (update-zombie-melee game zombie player)))
+
+(defun update-zombies-range (game zombies player)
+  (loop for zombie in (@ zombies children)
+     do (update-zombie-range game zombie player)))
 
 (defmacro create-player (game player x y)
   `(progn
@@ -383,6 +399,7 @@
             (when (keyboard-key-down? game *SPACEBAR*)
                 (fire game (/t player) (/t bullets)))
             (update-zombies-melee game (/t zombies-melee) (/t player))
+            (update-zombies-range game (/t zombies-range) (/t player))
             nil)))
 
 (defvar win-state
