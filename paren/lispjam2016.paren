@@ -383,7 +383,7 @@
    type type
    zombie nil))
 
-(defun update-spawns (spawns melee-group ranged-group)
+(defun update-spawn (spawn melee-group ranged-group)
   )
 
 (defvar play-state
@@ -457,7 +457,7 @@
             (update-zombies-melee game (/t zombies-melee) (/t player))
             (update-zombies-range game (/t zombies-range) (/t player))
             (loop for spawn in (/t spawns)
-               do (update-spawns spawn (/t zombies-melee) (/t zombies-range)))
+               do (update-spawn spawn (/t zombies-melee) (/t zombies-range)))
             nil)))
 
 (defvar win-state
