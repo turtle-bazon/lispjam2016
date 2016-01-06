@@ -191,6 +191,7 @@
 (defvar *zombie-range-velocity* 8)
 (defvar *zombie-melee-framerate* 2)
 (defvar *zombie-range-framerate* 2)
+(defvar *zombie-attack-distance* 70)
 
 
 (defun player-move-down (player)
@@ -259,14 +260,27 @@
                                ((= (get-direction-y player) -1) 270)))))
   nil)
 
+(defun square (x)
+  (* x x))
+
+(defun distance-square (obj1 obj2)
+  (+ (square (- (@ obj2 x) (@ obj1 x)))
+     (square (- (@ obj2 y) (@ obj1 y)))))
+
 (defun update-zombie-melee (game zombie player)
-  (let ((angle (// game physics arcade (move-to-object zombie player *zombie-melee-velocity*))))
-    
-    (cond
-      ((or (< angle -2.36) (>= angle 2.36)) (play-animation zombie "left"))
-      ((< angle -0.79) (play-animation zombie "up"))
-      ((< angle 0.79) (play-animation zombie "right"))
-      (true (play-animation zombie "down"))))
+  (let* ((distance-squared (distance-square zombie player))
+         (attack (< distance-squared (square *zombie-attack-distance*)))
+         (velocity (if attack 0 *zombie-melee-velocity*))
+         (angle (// game physics arcade (move-to-object zombie player velocity)))
+         (direction (cond
+                      ((or (< angle -2.36) (>= angle 2.36)) "left")
+                      ((< angle -0.79) "up")
+                      ((< angle 0.79) "right")
+                      (true "down")))
+         (animation (if attack
+                        (concatenate 'string direction "-attack")
+                        direction)))
+    (play-animation zombie animation))
   ;; (setf (@ zombie body velocity x) *zombie-melee-velocity*)
   )
 
