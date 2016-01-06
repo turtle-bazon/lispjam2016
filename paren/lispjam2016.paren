@@ -11,6 +11,9 @@
 (defmacro /c (&rest args)
   `(create ,@args))
 
+(defmacro pushf (array &rest values)
+  `(// ,array (push ,@values)))
+
 (defmacro add-state (game state state-object)
   `(// ,game state (add ,state ,state-object)))
 
@@ -373,6 +376,16 @@
        (add-animation zombie "left" '(19 20 21 20) *zombie-range-framerate*)
        (add-animation zombie "left-attack" '(22 23) *zombie-range-framerate*))))
 
+(defun create-spawn (x y type)
+  (/c
+   x x
+   y y
+   type type
+   zombie nil))
+
+(defun update-spawns (spawns melee-group ranged-group)
+  )
+
 (defvar play-state
   (/c
    player nil
@@ -381,15 +394,24 @@
    zombies-melee nil
    zombies-range nil
    bullets nil
+   spawns '()
    create (lambda (game)
             (let ((map (add-tilemap game "prery")))
               (map-add-tileset-image map "sand" "tiles-sand")
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
               (layer-resize-world (/t layer))
+              (let ((spawn-layer (map-create-layer map "spawns")))
+                (loop for tile in (layer-all-tiles spawn-layer)
+                   do (cond
+                        ((= (tile-index tile) 3)
+                         (pushf (/t spawns) (create-spawn (obj-x tile) (obj-y tile) :melee)))
+                        ((= (tile-index tile) 6)
+                         (pushf (/t spawns) (create-spawn (obj-x tile) (obj-y tile) :ranged)))
+                        (t nil))))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
-              (loop for tile in (layer-all-tiles (/t layer))
+              #+nil(loop for tile in (layer-all-tiles (/t layer))
                  do (cond
                       ((= (tile-index tile) 3)
                        (create-zombie-range (/t zombies-range)
@@ -434,6 +456,8 @@
                 (fire game (/t player) (/t bullets)))
             (update-zombies-melee game (/t zombies-melee) (/t player))
             (update-zombies-range game (/t zombies-range) (/t player))
+            (loop for spawn in (/t spawns)
+               do (update-spawns spawn (/t zombies-melee) (/t zombies-range)))
             nil)))
 
 (defvar win-state
