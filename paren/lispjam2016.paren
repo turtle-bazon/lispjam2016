@@ -211,15 +211,21 @@
 (defvar *zombie-melee-turn-interval* 2000)
 (defvar *zombie-melee-strength* 1)
 (defvar *zombie-melee-attack-interval* 1000)
+(defvar *zombie-melee-attack-distance* 70)
 
-(defvar *zombie-attack-distance* 70)
-
-(defvar *zombie-range-velocity* 8)
-(defvar *zombie-melee-framerate* 2)
-(defvar *zombie-range-framerate* 2)
+(defvar *zombie-range-walk-velocity* 8)
+(defvar *zombie-range-run-velocity* 20)
+(defvar *zombie-range-range* (get-x 5))
+(defvar *zombie-range-turn-interval* 3000)
+(defvar *zombie-range-strength* 0)
+(defvar *zombie-range-attack-interval* 5000)
+(defvar *zombie-range-attack-distance* (get-x 3))
 
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
+
+(defvar *zombie-melee-framerate* 2)
+(defvar *zombie-range-framerate* 2)
 
 (defvar *tint-time* 100)
 
@@ -346,7 +352,7 @@
 
 (defun update-zombie-melee (game zombie player)
   (let* ((distance-squared (distance-square zombie player))
-         (attack (< distance-squared (square *zombie-attack-distance*)))
+         (attack (< distance-squared (square *zombie-melee-attack-distance*)))
          (player-detected (< distance-squared (square *zombie-melee-range*)))
          (velocity (cond
                      (attack 0)
@@ -368,13 +374,64 @@
     (when (not (null angle))
      (play-animation zombie animation))))
 
+(defun zombie-range-attack (game zombie player)
+  (let ((last-attack (@ zombie last-attack))
+        (game-time (@ game time now)))
+    (when (< (+ last-attack *zombie-range-attack-interval*) game-time)
+      (setf (@ zombie last-attack) game-time))))
+
+(defun zombie-range-attack-ready? (game zombie)
+  (let ((last-attack (@ zombie last-attack))
+        (game-time (@ game time now)))
+    (< (+ last-attack *zombie-range-attack-interval*) game-time)))
+
+(defun zombie-range-patrol (game zombie)
+  (when (< (+ (@ zombie last-turn-time) *zombie-range-turn-interval*)
+           (@ game time now))
+    (setf (@ zombie last-turn-time) (@ game time now))
+    (let ((direction (random 4))
+          (zombie-velocity *zombie-range-walk-velocity*))
+      (setf (@ zombie body velocity x) (* *zombie-range-walk-velocity*
+                                          (cond
+                                            ((= direction 0) 1)
+                                            ((= direction 1) -1)
+                                            (true 0))))
+      (setf (@ zombie body velocity y) (* *zombie-range-walk-velocity*
+                                          (cond
+                                            ((= direction 2) 1)
+                                            ((= direction 3) -1)
+                                            (true 0))))
+      (cond
+        ((= direction 0) 0)
+        ((= direction 1) 3.14)
+        ((= direction 2) 1.57)
+        ((= direction 3) -1.57)))))
+
 (defun update-zombie-range (game zombie player)
-  (let ((angle (// game physics arcade (move-to-object zombie player *zombie-range-velocity*))))
-    (cond
-      ((or (< angle -2.36) (>= angle 2.36)) (play-animation zombie "left"))
-      ((< angle -0.79) (play-animation zombie "up"))
-      ((< angle 0.79) (play-animation zombie "right"))
-      (true (play-animation zombie "down")))))
+  (let* ((distance-squared (distance-square zombie player))
+         (attack-ready (zombie-range-attack-ready? game zombie))
+         (attack (and attack-ready
+                      (< distance-squared (square *zombie-range-attack-distance*))))
+         (player-detected (< distance-squared (square *zombie-range-range*)))
+         (velocity (cond
+                     (attack 0)
+                     (player-detected *zombie-range-run-velocity*)
+                     (true *zombie-range-walk-velocity*)))
+         (angle (if (and player-detected attack-ready)
+                    (// game physics arcade (move-to-object zombie player velocity))
+                    (zombie-range-patrol game zombie)))
+         (direction (cond
+                      ((or (< angle -2.36) (>= angle 2.36)) "left")
+                      ((< angle -0.79) "up")
+                      ((< angle 0.79) "right")
+                      (true "down")))
+         (animation (if attack
+                        (str direction "-attack")
+                        direction)))
+    (if attack
+        (zombie-range-attack game zombie player))
+    (when (not (null angle))
+     (play-animation zombie animation))))
 
 (defun update-zombies-melee (game zombies player)
   (loop for zombie in (@ zombies children)
