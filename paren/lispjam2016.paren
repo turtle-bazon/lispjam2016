@@ -213,6 +213,8 @@
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
 
+(defvar *tint-time* 100)
+
 (defun player-move-down (player)
   (set-velocity player y *player-velocity*)
   (play-animation player "down")
@@ -363,8 +365,20 @@
   (// player health-bar (update-crop)))
 
 (defun hit-player (player damage)
+  (when (not (@ player hit-state))
+    (setf (@ player hit-state) true)
+    (setf (@ player last-hit-time) (now)))  
   (let ((health (- (@ player health) damage)))
     (set-player-health player health)))
+
+(defun update-player (player)
+  (when (@ player hit-state)
+    (let ((t (now)))
+      (if (< (- t (@ player last-hit-time)) *tint-time*)
+          (setf (@ player tint) 0xff00ff)
+          (progn
+            (setf (@ player hit-state) false)
+            (setf (@ player tint) 0x000000))))))
 
 (defmacro create-player (game player x y)
   `(progn
@@ -377,6 +391,8 @@
        (setf (@ ,player health-bar crop-rect) crop-rect)
        (set-player-health ,player *player-max-health*))
      (setf (@ ,player direction) (/c x 0 y 1))
+     (setf (@ ,player hit-state) false)
+     (setf (@ ,player last-hit-time) 0)
      (physics-enable ,game ,player)
      (set-collide-world ,player)
                                         ;(setf (// ,player tint) 0xff00ff)
@@ -531,7 +547,8 @@
               ((key-down? (/t cursors) left) (player-move-left (/t player)))
               (t (player-stop (/t player))))
             (when (keyboard-key-down? game *SPACEBAR*)
-                (fire game (/t player) (/t bullets)))
+              (fire game (/t player) (/t bullets)))
+            (update-player (/t player))
             (update-zombies-melee game (/t zombies-melee) (/t player))
             (update-zombies-range game (/t zombies-range) (/t player))
             (loop for spawn in (/t spawns)
