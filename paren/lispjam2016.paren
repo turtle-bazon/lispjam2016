@@ -122,6 +122,9 @@
 (defmacro kill-obj (obj)
   `(// ,obj (kill)))
 
+(defmacro destroy-obj (obj)
+  `(// ,obj (destroy)))
+
 (defun set-direction (obj x y)
   (setf (@ obj direction "x") x)
   (setf (@ obj direction "y") y))
@@ -256,7 +259,7 @@
   (setf (@ (@ zombie spawn) zombie) nil)
   (setf (@ (@ zombie spawn) zombie-killed-time) (now))
   (setf (@ zombie spawn) nil)
-  (kill-obj zombie)
+  (destroy-obj zombie)
   nil)
 
 (defun bullet-hit-enemy (bullet enemy)
@@ -521,7 +524,7 @@
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-range)
                                               *zombie-range-respawn* *range-zombie-desc*)))
                         (t nil)))
-                (kill-obj spawn-layer))              
+                (destroy-obj spawn-layer))              
               (setf (/t bullets) (add-physics-group game))
               (obj-create-multiple (/t bullets) 30 "bullet")
               (obj-set-all (/t bullets) "anchor.x" 0.5)
