@@ -155,6 +155,9 @@
 (defmacro now ()
   `(// (new (*Date)) (get-time)))
 
+(defmacro log (what)
+  `(// console (log ,what)))
+
 (defmacro str (&rest values)
   `(concatenate 'string ,@values))
 
@@ -380,12 +383,13 @@
 
 (defun update-player (player)
   (when (@ player hit-state)
-    (let ((t (now)))
-      (if (< (- t (@ player last-hit-time)) *tint-time*)
-          (setf (@ player tint) 0xff00ff)
-          (progn
-            (setf (@ player hit-state) false)
-            (setf (@ player tint) 0x000000))))))
+    (let ((cur (now)))
+      (cond
+        ((< (- cur (@ player last-hit-time)) *tint-time*)
+         (setf (@ player tint) 0xff00ff))
+        ((< (- cur (@ player last-hit-time)) (* 2 *tint-time*))
+         (setf (@ player tint) 0xffffff))
+        (t (setf (@ player hit-state) false))))))
 
 (defmacro create-player (game player x y)
   `(progn
