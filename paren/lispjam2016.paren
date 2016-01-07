@@ -183,6 +183,7 @@
              (load-spritesheet game "zombie-range" "assets/characters/zombie-range.png"
                                *tile-size* *tile-size*)
              (load-image game "bullet" "assets/characters/bullet.png")
+             (load-image game "health-bar" "assets/characters/health-bar.png")
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
              nil)
@@ -195,7 +196,9 @@
    ))
 
 (defvar *player-velocity* 300)
+(defvar *player-max-health* 10)
 (defvar *player-framerate* 8)
+
 (defvar *zombie-melee-walk-velocity* 10)
 (defvar *zombie-melee-run-velocity* 120)
 (defvar *zombie-melee-range* (get-x 4))
@@ -354,13 +357,30 @@
   (loop for zombie in (@ zombies children)
      do (update-zombie-range game zombie player)))
 
+(defun set-player-health (player health)
+  (setf (@ player health) health)
+  (setf (@ player health-bar crop-rect width) (* (/ health *player-max-health*) (@ player health-bar width)))
+  (// player health-bar (update-crop)))
+
+(defun hit-player (player damage)
+  (let ((health (- (@ player health) damage)))
+    (set-player-health player health)))
+
 (defmacro create-player (game player x y)
   `(progn
      (setf ,player (add-sprite ,game (get-x ,x) (get-y ,y) "player"))
+     (setf (@ ,player health) 10)
+     (let* ((health-bar (add-sprite ,game (get-x 1) (get-y 1) "health-bar"))
+            (crop-rect (new (// *Phaser (*Rectangle 0 0 (@ health-bar width) (@ health-bar height))))))
+       (setf (@ health-bar crop-enabled) true)
+       (// health-bar (crop crop-rect))
+       (setf (@ ,player health-bar) health-bar)
+       (setf (@ ,player crop-rect) crop-rect)
+       (set-player-health ,player *player-max-health*))
      (setf (@ ,player direction) (/c x 0 y 1))
      (physics-enable ,game ,player)
      (set-collide-world ,player)
-     ;(setf (// ,player tint) 0xff00ff)
+                                        ;(setf (// ,player tint) 0xff00ff)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
      (add-animation ,player "up" '(5 6 7 6) *player-framerate*)
      (add-animation ,player "right" '(9 10 11 10) *player-framerate*)
