@@ -293,7 +293,7 @@
   (+ (square (- (@ obj2 x) (@ obj1 x)))
      (square (- (@ obj2 y) (@ obj1 y)))))
 
-(defun move-zombie-random (game zombie)
+(defun zombie-melee-patrol (game zombie)
   (when (< (+ (@ zombie last-turn-time) *zombie-melee-turn-interval*)
            (@ game time now))
     (setf (@ zombie last-turn-time) (@ game time now))
@@ -325,7 +325,7 @@
                      (true *zombie-melee-walk-velocity*)))
          (angle (if player-detected
                     (// game physics arcade (move-to-object zombie player velocity))
-                    (move-zombie-random game zombie)))
+                    (zombie-melee-patrol game zombie)))
          (direction (cond
                       ((or (< angle -2.36) (>= angle 2.36)) "left")
                       ((< angle -0.79) "up")
@@ -373,9 +373,8 @@
      (let* ((health-bar (add-sprite ,game (get-x 1) (get-y 1) "health-bar"))
             (crop-rect (new (// *Phaser (*Rectangle 0 0 (@ health-bar width) (@ health-bar height))))))
        (setf (@ health-bar crop-enabled) true)
-       (// health-bar (crop crop-rect))
        (setf (@ ,player health-bar) health-bar)
-       (setf (@ ,player crop-rect) crop-rect)
+       (setf (@ ,player health-bar crop-rect) crop-rect)
        (set-player-health ,player *player-max-health*))
      (setf (@ ,player direction) (/c x 0 y 1))
      (physics-enable ,game ,player)
