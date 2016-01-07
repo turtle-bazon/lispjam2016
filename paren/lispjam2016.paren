@@ -203,6 +203,8 @@
 (defvar *zombie-melee-run-velocity* 120)
 (defvar *zombie-melee-range* (get-x 4))
 (defvar *zombie-melee-turn-interval* 2000)
+(defvar *zombie-melee-strength* 1)
+(defvar *zombie-melee-attack-interval* 1000)
 
 (defvar *zombie-attack-distance* 70)
 
@@ -295,6 +297,25 @@
   (+ (square (- (@ obj2 x) (@ obj1 x)))
      (square (- (@ obj2 y) (@ obj1 y)))))
 
+(defun set-player-health (player health)
+  (setf (@ player health) health)
+  (setf (@ player health-bar crop-rect width) (* (/ health *player-max-health*) (@ player health-bar width)))
+  (// player health-bar (update-crop)))
+
+(defun hit-player (player damage)
+  (when (not (@ player hit-state))
+    (setf (@ player hit-state) true)
+    (setf (@ player last-hit-time) (now)))  
+  (let ((health (- (@ player health) damage)))
+    (set-player-health player health)))
+
+(defun zombie-melee-attack (game zombie player)
+  (let ((last-attack (@ zombie last-attack))
+        (game-time (@ game time now)))
+    (when (< (+ last-attack *zombie-melee-attack-interval*) game-time)
+      (setf (@ zombie last-attack) game-time)
+      (hit-player player *zombie-melee-strength*))))
+
 (defun zombie-melee-patrol (game zombie)
   (when (< (+ (@ zombie last-turn-time) *zombie-melee-turn-interval*)
            (@ game time now))
@@ -336,10 +357,10 @@
          (animation (if attack
                         (str direction "-attack")
                         direction)))
+    (if attack
+        (zombie-melee-attack game zombie player))
     (when (not (null angle))
-     (play-animation zombie animation)))
-  ;; (setf (@ zombie body velocity x) *zombie-melee-velocity*)
-  )
+     (play-animation zombie animation))))
 
 (defun update-zombie-range (game zombie player)
   (let ((angle (// game physics arcade (move-to-object zombie player *zombie-range-velocity*))))
@@ -347,9 +368,7 @@
       ((or (< angle -2.36) (>= angle 2.36)) (play-animation zombie "left"))
       ((< angle -0.79) (play-animation zombie "up"))
       ((< angle 0.79) (play-animation zombie "right"))
-      (true (play-animation zombie "down"))))
-  ;; (setf (@ zombie body velocity x) *zombie-melee-velocity*)
-  )
+      (true (play-animation zombie "down")))))
 
 (defun update-zombies-melee (game zombies player)
   (loop for zombie in (@ zombies children)
@@ -358,18 +377,6 @@
 (defun update-zombies-range (game zombies player)
   (loop for zombie in (@ zombies children)
      do (update-zombie-range game zombie player)))
-
-(defun set-player-health (player health)
-  (setf (@ player health) health)
-  (setf (@ player health-bar crop-rect width) (* (/ health *player-max-health*) (@ player health-bar width)))
-  (// player health-bar (update-crop)))
-
-(defun hit-player (player damage)
-  (when (not (@ player hit-state))
-    (setf (@ player hit-state) true)
-    (setf (@ player last-hit-time) (now)))  
-  (let ((health (- (@ player health) damage)))
-    (set-player-health player health)))
 
 (defun update-player (player)
   (when (@ player hit-state)
@@ -395,7 +402,6 @@
      (setf (@ ,player last-hit-time) 0)
      (physics-enable ,game ,player)
      (set-collide-world ,player)
-                                        ;(setf (// ,player tint) 0xff00ff)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
      (add-animation ,player "up" '(5 6 7 6) *player-framerate*)
      (add-animation ,player "right" '(9 10 11 10) *player-framerate*)
@@ -430,7 +436,8 @@
     (add-animation zombie "left-attack" '(22 23) framerate)
     (setf (@ zombie last-turn-time) 0)
     (setf (@ zombie spawn) spawn)
-    (setf (@ spawn zombie) zombie)))
+    (setf (@ spawn zombie) zombie)
+    (setf (@ zombie last-attack) 0)))
 
 (defmacro create-zombie-melee (group x y spawn)
   `(progn
@@ -478,9 +485,6 @@
          (now (now)))
     (when (and (eq zombie nil)
                (> (- now zombie-killed-time) respawn-time))
-      (// console (log now))
-      (// console (log zombie-killed-time))
-      (// console (log respawn-time))
       (spawn-zombie spawn))
     nil))
 
