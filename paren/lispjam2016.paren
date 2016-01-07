@@ -164,6 +164,9 @@
 (defmacro str (&rest values)
   `(concatenate 'string ,@values))
 
+(defmacro tile-spawn-type (tile)
+  `(@ ,tile properties spawn))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -579,11 +582,11 @@
               (let ((spawn-layer (map-create-layer map "spawns")))
                 (loop for tile in (layer-all-tiles spawn-layer)
                    do (cond
-                        ((= (tile-index tile) 3)
+                        ((eq (tile-spawn-type tile) "zombie-melee")
                          (pushf (/t spawns)
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-melee)
                                               *zombie-melee-respawn* *melee-zombie-desc*)))
-                        ((= (tile-index tile) 6)
+                        ((eq (tile-spawn-type tile) "zombie-range")
                          (pushf (/t spawns)
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-range)
                                               *zombie-range-respawn* *range-zombie-desc*)))
