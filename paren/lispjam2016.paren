@@ -44,8 +44,11 @@
 (defmacro set-frame (obj id)
   `(setf (// ,obj frame) ,id))
 
-(defmacro play-animation (obj name)
-  `(// ,obj animations (play ,name)))
+(defmacro play-animation (sprite name)
+  `(// ,sprite animations (play ,name)))
+
+(defmacro sprite-animation (sprite name)
+  `(// ,sprite animations (get-animation ,name)))
 
 (defmacro animation-frame (obj)
   `(// ,obj animations frame))
@@ -296,10 +299,18 @@
   nil)
 
 (defun kill-zombie (zombie)
+  (setf (@ zombie killed) t)
+  (setf (@ zombie body) f)
   (setf (@ (@ zombie spawn) zombie) nil)
   (setf (@ (@ zombie spawn) zombie-killed-time) (now))
   (setf (@ zombie spawn) nil)
-  (destroy-obj zombie)
+  (play-animation zombie "die")
+  (let ((die-animation (sprite-animation zombie "die")))
+    (// die-animation on-complete
+        (add (lambda (sprite animation)               
+               (destroy-obj zombie)
+               nil)
+             this)))
   nil)
 
 (defun bullet-hit-enemy (bullet enemy)
@@ -386,28 +397,29 @@
         ((= direction 3) -1.57)))))
 
 (defun update-zombie-melee (game zombie player)
-  (let* ((distance-squared (distance-square zombie player))
-         (attack (< distance-squared (square *zombie-melee-attack-distance*)))
-         (player-detected (< distance-squared (square *zombie-melee-range*)))
-         (velocity (cond
-                     (attack 0)
-                     (player-detected *zombie-melee-run-velocity*)
-                     (true *zombie-melee-walk-velocity*)))
-         (angle (if player-detected
-                    (// game physics arcade (move-to-object zombie player velocity))
-                    (zombie-melee-patrol game zombie)))
-         (direction (cond
-                      ((or (< angle -2.36) (>= angle 2.36)) "left")
-                      ((< angle -0.79) "up")
-                      ((< angle 0.79) "right")
-                      (true "down")))
-         (animation (if attack
-                        (str direction "-attack")
-                        direction)))
-    (if attack
-        (zombie-melee-attack game zombie player))
-    (when (not (null angle))
-     (play-animation zombie animation))))
+  (when (not (@ zombie killed))
+    (let* ((distance-squared (distance-square zombie player))
+           (attack (< distance-squared (square *zombie-melee-attack-distance*)))
+           (player-detected (< distance-squared (square *zombie-melee-range*)))
+           (velocity (cond
+                       (attack 0)
+                       (player-detected *zombie-melee-run-velocity*)
+                       (true *zombie-melee-walk-velocity*)))
+           (angle (if player-detected
+                      (// game physics arcade (move-to-object zombie player velocity))
+                      (zombie-melee-patrol game zombie)))
+           (direction (cond
+                        ((or (< angle -2.36) (>= angle 2.36)) "left")
+                        ((< angle -0.79) "up")
+                        ((< angle 0.79) "right")
+                        (true "down")))
+           (animation (if attack
+                          (str direction "-attack")
+                          direction)))
+      (if attack
+          (zombie-melee-attack game zombie player))
+      (when (not (null angle))
+        (play-animation zombie animation)))))
 
 (defun goo-pool-hit-player (game player goo-pool)
   (when  (@ goo-pool alive)
@@ -475,30 +487,31 @@
         ((= direction 3) -1.57)))))
 
 (defun update-zombie-range (game zombie player goo-pools)
-  (let* ((distance-squared (distance-square zombie player))
-         (attack-ready (zombie-range-attack-ready? game zombie))
-         (attack (and attack-ready
-                      (< distance-squared (square *zombie-range-attack-distance*))))
-         (player-detected (< distance-squared (square *zombie-range-range*)))
-         (velocity (cond
-                     (attack 0)
-                     (player-detected *zombie-range-run-velocity*)
-                     (true *zombie-range-walk-velocity*)))
-         (angle (if (and player-detected attack-ready)
-                    (// game physics arcade (move-to-object zombie player velocity))
-                    (zombie-range-patrol game zombie)))
-         (direction (cond
-                      ((or (< angle -2.36) (>= angle 2.36)) "left")
-                      ((< angle -0.79) "up")
-                      ((< angle 0.79) "right")
-                      (true "down")))
-         (animation (if attack
-                        (str direction "-attack")
-                        direction)))
-    (if attack
-        (zombie-range-attack game zombie player goo-pools))
-    (when (not (null angle))
-     (play-animation zombie animation))))
+  (when (not (@ zombie killed))
+    (let* ((distance-squared (distance-square zombie player))
+           (attack-ready (zombie-range-attack-ready? game zombie))
+           (attack (and attack-ready
+                        (< distance-squared (square *zombie-range-attack-distance*))))
+           (player-detected (< distance-squared (square *zombie-range-range*)))
+           (velocity (cond
+                       (attack 0)
+                       (player-detected *zombie-range-run-velocity*)
+                       (true *zombie-range-walk-velocity*)))
+           (angle (if (and player-detected attack-ready)
+                      (// game physics arcade (move-to-object zombie player velocity))
+                      (zombie-range-patrol game zombie)))
+           (direction (cond
+                        ((or (< angle -2.36) (>= angle 2.36)) "left")
+                        ((< angle -0.79) "up")
+                        ((< angle 0.79) "right")
+                        (true "down")))
+           (animation (if attack
+                          (str direction "-attack")
+                          direction)))
+      (if attack
+          (zombie-range-attack game zombie player goo-pools))
+      (when (not (null angle))
+        (play-animation zombie animation)))))
 
 (defun update-zombies-melee (game zombies player)
   (loop for zombie in (@ zombies children)
@@ -586,6 +599,8 @@
                  (add-animation zombie "right-attack" '(16 17) framerate)
                  (add-animation zombie "left" '(19 20 21 20) framerate)
                  (add-animation zombie "left-attack" '(22 23) framerate)
+                 (add-animation zombie "die" '(25 26 27 28 29 30 31 32 34) framerate false)
+                 (setf (@ zombie killed) f)
                  (setf (@ zombie hp) (@ zombie-desc hp))
                  (setf (@ zombie last-turn-time) 0)
                  (setf (@ zombie spawn) spawn)
