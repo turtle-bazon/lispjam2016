@@ -152,6 +152,9 @@
 (defmacro create-in (group x y name)
   `(// ,group (create ,x ,y ,name)))
 
+(defmacro now ()
+  `(// (new (*Date)) (get-time)))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -201,6 +204,8 @@
 (defvar *zombie-melee-framerate* 2)
 (defvar *zombie-range-framerate* 2)
 
+(defvar *zombie-melee-respawn* 10000)
+(defvar *zombie-range-respawn* 15000)
 
 (defun player-move-down (player)
   (set-velocity player y *player-velocity*)
@@ -234,10 +239,17 @@
       (set-frame player idle-frame)))
   nil)
 
+(defun kill-zombie (zombie)
+  (setf (@ (@ zombie spawn) zombie) nil)
+  (setf (@ (@ zombie spawn) zombie-killed-time) (now))
+  (setf (@ zombie spawn) nil)
+  (kill-obj zombie)
+  nil)
+
 (defun bullet-hit-enemy (bullet enemy)
   ;; TODO move to new location and generate enemies
   (kill-obj bullet)
-  (kill-obj enemy)
+  (kill-zombie enemy)
   nil)
 
 (defun bullet-hit-wall (bullet wall)
@@ -351,9 +363,39 @@
      (add-animation ,player "left" '(13 14 15 14) *player-framerate*)
      (play-animation ,player "down")))
 
-(defmacro create-zombie-melee (group x y)
+(defvar *melee-zombie-desc*
+  (/c
+   type "zombie-melee"
+   framerate *zombie-melee-framerate*))
+
+(defvar *range-zombie-desc*
+  (/c
+   type "zombie-range"
+   framerate *zombie-range-framerate*))
+
+(defun spawn-zombie (spawn)
+  (let* ((zombie-desc (// spawn zombie-desc))
+         (type (// zombie-desc type))
+         (framerate (// zombie-desc framerate))
+         (group (// spawn group))
+         (x (obj-x spawn))
+         (y (obj-y spawn))
+         (zombie (create-in group (get-x x) (get-y y) type)))
+    (add-animation zombie "down" '(1 2 3 2) framerate)
+    (add-animation zombie "down-attack" '(4 5) framerate)
+    (add-animation zombie "up" '(7 8 9 8) framerate)
+    (add-animation zombie "up-attack" '(10 11) framerate)
+    (add-animation zombie "right" '(13 14 15 14) framerate)
+    (add-animation zombie "right-attack" '(16 17) framerate)
+    (add-animation zombie "left" '(19 20 21 20) framerate)
+    (add-animation zombie "left-attack" '(22 23) framerate)
+    (setf (@ zombie last-turn-time) 0)
+    (setf (@ zombie spawn) spawn)
+    (setf (@ spawn zombie) zombie)))
+
+(defmacro create-zombie-melee (group x y spawn)
   `(progn
-     (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-melee")))
+     (let* ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-melee")))
        (add-animation zombie "down" '(1 2 3 2) *zombie-melee-framerate*)
        (add-animation zombie "down-attack" '(4 5) *zombie-melee-framerate*)
        (add-animation zombie "up" '(7 8 9 8) *zombie-melee-framerate*)
@@ -362,11 +404,13 @@
        (add-animation zombie "right-attack" '(16 17) *zombie-melee-framerate*)
        (add-animation zombie "left" '(19 20 21 20) *zombie-melee-framerate*)
        (add-animation zombie "left-attack" '(22 23) *zombie-melee-framerate*)
-       (setf (@ zombie last-turn-time) 0))))
+       (setf (@ zombie last-turn-time) 0)
+       (setf (@ zombie spawn) spawn)
+       (setf (@ spawn zombie) zombie))))
 
-(defmacro create-zombie-range (group x y)
+(defmacro create-zombie-range (group x y spawn)
   `(progn
-     (let ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
+     (let* ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
        (add-animation zombie "down" '(1 2 3 2) *zombie-range-framerate*)
        (add-animation zombie "down-attack" '(4 5) *zombie-range-framerate*)
        (add-animation zombie "up" '(7 8 9 8) *zombie-range-framerate*)
@@ -374,17 +418,32 @@
        (add-animation zombie "right" '(13 14 15 14) *zombie-range-framerate*)
        (add-animation zombie "right-attack" '(16 17) *zombie-range-framerate*)
        (add-animation zombie "left" '(19 20 21 20) *zombie-range-framerate*)
-       (add-animation zombie "left-attack" '(22 23) *zombie-range-framerate*))))
+       (add-animation zombie "left-attack" '(22 23) *zombie-range-framerate*)
+       (setf (@ zombie spawn) spawn)
+       (setf (@ spawn zombie) zombie))))
 
-(defun create-spawn (x y type)
+(defun create-spawn (x y group respawn-time zombie-desc)
   (/c
    x x
    y y
-   type type
-   zombie nil))
+   group group
+   respawn-time respawn-time
+   zombie-desc zombie-desc
+   zombie nil
+   zombie-killed-time 0))
 
-(defun update-spawn (spawn melee-group ranged-group)
-  )
+(defun update-spawn (spawn)
+  (let* ((respawn-time (// spawn respawn-time))
+         (zombie (// spawn zombie))
+         (zombie-killed-time (// spawn zombie-killed-time))
+         (now (now)))
+    (when (and (eq zombie nil)
+               (> (- now zombie-killed-time) respawn-time))
+      (// console (log now))
+      (// console (log zombie-killed-time))
+      (// console (log respawn-time))
+      (spawn-zombie spawn))
+    nil))
 
 (defvar play-state
   (/c
@@ -401,16 +460,21 @@
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
               (layer-resize-world (/t layer))
+              (setf (/t zombies-melee) (add-physics-group game))
+              (setf (/t zombies-range) (add-physics-group game))
               (let ((spawn-layer (map-create-layer map "spawns")))
                 (loop for tile in (layer-all-tiles spawn-layer)
                    do (cond
                         ((= (tile-index tile) 3)
-                         (pushf (/t spawns) (create-spawn (obj-x tile) (obj-y tile) :melee)))
+                         (pushf (/t spawns)
+                                (create-spawn (obj-x tile) (obj-y tile) (/t zombies-melee)
+                                              *zombie-melee-respawn* *melee-zombie-desc*)))
                         ((= (tile-index tile) 6)
-                         (pushf (/t spawns) (create-spawn (obj-x tile) (obj-y tile) :ranged)))
-                        (t nil))))
-              (setf (/t zombies-melee) (add-physics-group game))
-              (setf (/t zombies-range) (add-physics-group game))
+                         (pushf (/t spawns)
+                                (create-spawn (obj-x tile) (obj-y tile) (/t zombies-range)
+                                              *zombie-range-respawn* *range-zombie-desc*)))
+                        (t nil)))
+                (kill-obj spawn-layer))              
               #+nil(loop for tile in (layer-all-tiles (/t layer))
                  do (cond
                       ((= (tile-index tile) 3)
@@ -457,7 +521,7 @@
             (update-zombies-melee game (/t zombies-melee) (/t player))
             (update-zombies-range game (/t zombies-range) (/t player))
             (loop for spawn in (/t spawns)
-               do (update-spawn spawn (/t zombies-melee) (/t zombies-range)))
+               do (update-spawn spawn))
             nil)))
 
 (defvar win-state
