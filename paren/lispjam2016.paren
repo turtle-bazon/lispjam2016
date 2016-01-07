@@ -155,6 +155,9 @@
 (defmacro now ()
   `(// (new (*Date)) (get-time)))
 
+(defmacro str (&rest values)
+  `(concatenate 'string ,@values))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -326,7 +329,7 @@
                       ((< angle 0.79) "right")
                       (true "down")))
          (animation (if attack
-                        (concatenate 'string direction "-attack")
+                        (str direction "-attack")
                         direction)))
     (when (not (null angle))
      (play-animation zombie animation)))
