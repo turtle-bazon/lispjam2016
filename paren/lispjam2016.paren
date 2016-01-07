@@ -269,9 +269,12 @@
   nil)
 
 (defun bullet-hit-enemy (bullet enemy)
-  ;; TODO move to new location and generate enemies
   (kill-obj bullet)
-  (kill-zombie enemy)
+  (let* ((current-hp (@ enemy hp))
+         (new-hp (- current-hp *bullet-damage*)))
+    (if (<= new-hp 0)
+        (kill-zombie enemy)
+        (setf (@ enemy hp) new-hp)))
   nil)
 
 (defun bullet-hit-wall (bullet wall)
@@ -281,6 +284,7 @@
 (defvar *fire-interval* 500)
 (defvar *last-fire* 0)
 (defvar *bullet-velocity* 500)
+(defvar *bullet-damage* 50)
 
 (defun fire (game player bullets)
   (when (and (<= (+ *last-fire* *fire-interval*) (@ game time now))
@@ -475,11 +479,13 @@
 (defvar *melee-zombie-desc*
   (/c
    type "zombie-melee"
+   hp 150
    framerate *zombie-melee-framerate*))
 
 (defvar *range-zombie-desc*
   (/c
    type "zombie-range"
+   hp 100
    framerate *zombie-range-framerate*))
 
 (defun spawn-zombie (spawn)
@@ -498,6 +504,7 @@
     (add-animation zombie "right-attack" '(16 17) framerate)
     (add-animation zombie "left" '(19 20 21 20) framerate)
     (add-animation zombie "left-attack" '(22 23) framerate)
+    (setf (@ zombie hp) (@ zombie-desc hp))
     (setf (@ zombie last-turn-time) 0)
     (setf (@ zombie spawn) spawn)
     (setf (@ spawn zombie) zombie)
