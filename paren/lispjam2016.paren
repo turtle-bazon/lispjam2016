@@ -240,8 +240,8 @@
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
 
-(defvar *zombie-melee-framerate* 2)
-(defvar *zombie-range-framerate* 2)
+(defvar *zombie-melee-framerate* 8)
+(defvar *zombie-range-framerate* 8)
 
 (defvar *goo-pool-framerate* 1)
 (defvar *goo-pool-live-time* 3000)
