@@ -299,6 +299,7 @@
   nil)
 
 (defun kill-zombie (zombie)
+  (// zombie (send-to-back))
   (setf (@ zombie killed) t)
   (setf (@ zombie body) f)
   (setf (@ (@ zombie spawn) zombie) nil)
