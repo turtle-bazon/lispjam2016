@@ -357,6 +357,7 @@
      (setf (@ ,player direction) (/c x 0 y 1))
      (physics-enable ,game ,player)
      (set-collide-world ,player)
+     ;(setf (// ,player tint) 0xff00ff)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
      (add-animation ,player "up" '(5 6 7 6) *player-framerate*)
      (add-animation ,player "right" '(9 10 11 10) *player-framerate*)
