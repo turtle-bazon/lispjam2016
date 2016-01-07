@@ -687,6 +687,7 @@
    zombies-range nil
    bullets nil
    goo-pools nil
+   bottom-objs nil
    spawns '()
    create (lambda (game)
             (let ((map (add-tilemap game "prery")))
@@ -694,6 +695,8 @@
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
               (layer-resize-world (/t layer))
+              (setf (/t bottom-objs) (add-physics-group game))
+              (setf (/t goo-pools) (create-ammunation game 30 "goo-pool"))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
               (let ((spawn-layer (map-create-layer map "spawns")))
@@ -710,7 +713,6 @@
                         (t nil)))
                 (destroy-obj spawn-layer))              
               (setf (/t bullets) (create-ammunation game 30 "bullet"))
-              (setf (/t goo-pools) (create-ammunation game 30 "goo-pool"))
               (loop for goo-pool in (@ (/t goo-pools) children)
                  do (setf (@ goo-pool last-damage) 0)
                  ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
