@@ -336,6 +336,7 @@
   nil)
 
 (defun stop-attack (game obj)
+  (setf (@ obj busy) false)
   (setf (@ obj spelling) false)
   (setf (@ obj last-attack) (@ game time now)))
 
