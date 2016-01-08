@@ -134,6 +134,7 @@
 
 (defvar *tile-size* 64)
 (defvar *tile-size-goo-pool* 32)
+(defvar *health-point-width* 16)
 
 (defmacro get-x (pos-x)
   `(* *tile-size* ,pos-x))
@@ -244,7 +245,7 @@
 
 (defvar *goo-pool-framerate* 1)
 (defvar *goo-pool-live-time* 3000)
-(defvar *goo-pool-damage* 0.01)
+(defvar *goo-pool-damage* 0.4)
 (defvar *goo-pool-damage-interval* 100)
 
 (defvar *spawn-framerate* 8)
@@ -362,7 +363,7 @@
 
 (defun set-player-health (player health)
   (setf (@ player health) health)
-  (setf (@ player health-bar crop-rect width) (* (/ health *player-max-health*) (@ player health-bar width)))
+  (setf (@ player health-bar crop-rect width) (* health *health-point-width*))
   (// player health-bar (update-crop)))
 
 (defun hit-player (player damage)
@@ -522,7 +523,7 @@
 
 (defun update-zombies-melee (game zombies player)
   (loop for zombie in (@ zombies children)
-       do (update-zombie-melee game zombie player)))
+     do (update-zombie-melee game zombie player)))
 
 (defun update-zombies-range (game zombies player goo-pools)
   (loop for zombie in (@ zombies children)
@@ -642,14 +643,14 @@
    zombie-killed-time 0))
 
 (defun update-spawn (game spawn)
-   (let* ((respawn-time (// spawn respawn-time))
-          (zombie (// spawn zombie))
-          (zombie-killed-time (// spawn zombie-killed-time))
-          (now (now)))
-     (when (and (eq zombie nil)
-                (> (- now zombie-killed-time) respawn-time))  
-       (spawn-zombie game spawn))
-     nil))
+  (let* ((respawn-time (// spawn respawn-time))
+         (zombie (// spawn zombie))
+         (zombie-killed-time (// spawn zombie-killed-time))
+         (now (now)))
+    (when (and (eq zombie nil)
+               (> (- now zombie-killed-time) respawn-time))  
+      (spawn-zombie game spawn))
+    nil))
 
 (defun create-ammunation (game count key &optional frame)
   (let ((ammunation (add-group game)))
