@@ -29,6 +29,9 @@
 (defmacro collide-objs (game obj1 obj2 &optional collide-callback)
   `(// ,game physics arcade (collide ,obj1 ,obj2 ,collide-callback)))
 
+(defmacro load-audio (game name uri)
+  `(// ,game load (audio ,name ,uri)))
+
 (defmacro load-image (game name uri)
   `(// ,game load (image ,name ,uri)))
 
@@ -40,6 +43,12 @@
 
 (defmacro add-animation (obj name frames frame-rate &optional (loop t))
   `(// ,obj animations (add ,name ,frames ,frame-rate ,loop)))
+
+(defmacro add-audio (game name)
+  `(// ,game add (audio ,name)))
+
+(defmacro play-audio (audio)
+  `(// ,audio (play)))
 
 (defmacro set-frame (obj id)
   `(setf (// ,obj frame) ,id))
@@ -214,6 +223,8 @@
                                *tile-size-goo-pool* *tile-size-goo-pool*)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
+             (load-audio game "gunshot" "assets/sounds/gunshot.ogg")
+             (load-audio game "cowboy-hurt" "assets/sounds/cowboy-hurt.ogg")
              nil)
    create (lambda (game)
             (change-state game "play")
@@ -353,6 +364,7 @@
     (setf (@ player fire-state) true)
     (setf (@ player last-fire-time) (now))
     (stop-animation player)
+    (play-audio (@ player audio-gunshot))
     (let ((bullet (// bullets (get-first-dead))))
       (// bullet (reset (+ (@ player x)
                            (/ (@ player width) 2))
@@ -390,6 +402,7 @@
   (// player health-bar (update-crop)))
 
 (defun hit-player (game player damage)
+  (play-audio (@ player audio-cowboy-hurt))
   (when (not (@ player hit-state))
     (setf (@ player hit-state) true)
     (setf (@ player last-hit-time) (now)))  
@@ -690,6 +703,8 @@
      (setf (@ ,player last-hit-time) 0)
      (setf (@ ,player direction-frame) 0)
      (setf (@ ,player fire-frame) 4)
+     (setf (@ ,player audio-gunshot) (add-audio game "gunshot"))
+     (setf (@ ,player audio-cowboy-hurt) (add-audio game "cowboy-hurt"))
      (physics-enable ,game ,player)
      (set-collide-world ,player)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
