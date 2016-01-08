@@ -243,7 +243,7 @@
 (defvar *zombie-boss-walk-velocity* 10)
 (defvar *zombie-boss-range* (get-x 12))
 (defvar *zombie-boss-turn-interval* 2000)
-(defvar *zombie-boss-spell-damage* 1000)
+(defvar *zombie-boss-spell-damage* 2)
 (defvar *zombie-boss-spell-interval* 3000)
 (defvar *zombie-boss-spell-distance* (get-x 12))
 
@@ -625,8 +625,9 @@
   `(progn
      (setf ,player (add-sprite ,game (get-x ,x) (get-y ,y) "player"))
      (setf (@ ,player health) 10)
-     (let* ((health-bar (add-sprite ,game (get-x 1) (get-y 1) "health-bar"))
+     (let* ((health-bar (add-sprite ,game 32 32 "health-bar"))
             (crop-rect (new (// *Phaser (*Rectangle 0 0 (@ health-bar width) (@ health-bar height))))))
+       (setf (@ health-bar fixed-to-camera) true)
        (setf (@ health-bar crop-enabled) true)
        (setf (@ ,player health-bar) health-bar)
        (setf (@ ,player health-bar crop-rect) crop-rect)
