@@ -256,9 +256,8 @@
 (defvar *bullet-damage* 50)
 
 (defvar *fire-time* 50)
-
-
 (defvar *tint-time* 100)
+(defvar *hit-time* 100)
 
 (defun player-move-down (player)
   (set-velocity player y *player-velocity*)
@@ -321,7 +320,11 @@
          (new-hp (- current-hp *bullet-damage*)))
     (if (<= new-hp 0)
         (kill-zombie enemy zombie-group bottom-group)
-        (setf (@ enemy hp) new-hp)))
+        (progn
+          (stop-animation enemy)
+          (set-frame enemy 24)
+          (setf (@ enemy last-hit-time) (now))
+          (setf (@ enemy hp) new-hp))))
   nil)
 
 (defun bullet-hit-wall (bullet wall)
@@ -334,6 +337,7 @@
     (setf *last-fire* (@ game time now))
     (setf (@ player fire-state) true)
     (setf (@ player last-fire-time) (now))
+    (stop-animation player)
     (let ((bullet (// bullets (get-first-dead))))
       (// bullet (reset (+ (@ player x)
                            (/ (@ player width) 2))
@@ -399,7 +403,8 @@
         ((= direction 3) -1.57)))))
 
 (defun update-zombie-melee (game zombie player)
-  (when (not (@ zombie killed))
+  (when (and (not (@ zombie killed))
+             (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
            (attack (< distance-squared (square *zombie-melee-attack-distance*)))
            (player-detected (< distance-squared (square *zombie-melee-range*)))
@@ -489,7 +494,8 @@
         ((= direction 3) -1.57)))))
 
 (defun update-zombie-range (game zombie player goo-pools)
-  (when (not (@ zombie killed))
+  (when (and (not (@ zombie killed))
+             (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
            (attack-ready (zombie-range-attack-ready? game zombie))
            (attack (and attack-ready
@@ -607,7 +613,8 @@
                  (setf (@ zombie last-turn-time) 0)
                  (setf (@ zombie spawn) spawn)
                  (setf (@ spawn zombie) zombie)
-                 (setf (@ zombie last-attack) 0))
+                 (setf (@ zombie last-attack) 0)
+                 (setf (@ zombie last-hit-time) 0))
                (play-animation zombie-spawn "end")
                (// end-animation on-complete
                    (add (lambda (end-sprite end-animation)
