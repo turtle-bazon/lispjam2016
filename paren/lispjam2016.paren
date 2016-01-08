@@ -150,8 +150,8 @@
 (defmacro f-loop (objs lambda)
   `(// ,objs (for-each ,lambda)))
 
-(defmacro layer-all-tiles (layer)
-  `(// ,layer (get-tiles 0 0 (// ,layer width) (// ,layer height))))
+(defmacro layer-all-tiles (layer width height)
+  `(// ,layer (get-tiles 0 0 ,width ,height)))
 
 (defmacro tile-index (tile)
   `(// ,tile index))
@@ -199,6 +199,8 @@
                                *tile-size* *tile-size*)
              (load-spritesheet game "zombie-range" "assets/characters/zombie-range.png"
                                *tile-size* *tile-size*)
+             (load-spritesheet game "zombie-boss" "assets/characters/zombie-melee.png"
+                               *tile-size* *tile-size*)
              (load-spritesheet game "zombie-spawn" "assets/characters/zombie-spawn.png"
                                *tile-size* *tile-size*)
              (load-image game "bullet" "assets/characters/bullet.png")
@@ -239,9 +241,6 @@
 
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
-
-(defvar *zombie-melee-framerate* 8)
-(defvar *zombie-range-framerate* 8)
 
 (defvar *goo-pool-framerate* 1)
 (defvar *goo-pool-live-time* 3000)
@@ -577,23 +576,30 @@
   (/c
    type "zombie-melee"
    hp 150
-   framerate *zombie-melee-framerate*))
+   framerate 8))
 
 (defvar *range-zombie-desc*
   (/c
    type "zombie-range"
    hp 100
-   framerate *zombie-range-framerate*))
+   framerate 8))
+
+(defvar *boss-zombie-desc*
+  (/c
+   type "zombie-boss"
+   hp 1000
+   framerate 8))
 
 (defun spawn-zombie (game spawn)
   (let* ((x (obj-x spawn))
          (y (obj-y spawn))
          (zombie-spawn (add-sprite game (get-x x) (get-y y) "zombie-spawn"))
          (begin-animation (add-animation zombie-spawn "begin" '(0 1 2 3 4) *spawn-framerate* false))
-         (end-animation (add-animation zombie-spawn "end" '(5 6 7 8 9) *spawn-framerate* false)))    
+         (end-animation (add-animation zombie-spawn "end" '(5 6 7 8 9) *spawn-framerate* false)))
     (play-animation zombie-spawn "begin")
     (// begin-animation on-complete
         (add (lambda (sprite animation)
+               (log (// spawn zombie-desc))
                (let* ((zombie-desc (// spawn zombie-desc))
                       (type (// zombie-desc type))
                       (framerate (// zombie-desc framerate))
@@ -637,14 +643,14 @@
    zombie-killed-time 0))
 
 (defun update-spawn (game spawn)
-  (let* ((respawn-time (// spawn respawn-time))
-         (zombie (// spawn zombie))
-         (zombie-killed-time (// spawn zombie-killed-time))
-         (now (now)))
-    (when (and (eq zombie nil)
-               (> (- now zombie-killed-time) respawn-time))
-      (spawn-zombie game spawn))
-    nil))
+   (let* ((respawn-time (// spawn respawn-time))
+          (zombie (// spawn zombie))
+          (zombie-killed-time (// spawn zombie-killed-time))
+          (now (now)))
+     (when (and (eq zombie nil)
+                (> (- now zombie-killed-time) respawn-time))  
+       (spawn-zombie game spawn))
+     nil))
 
 (defun create-ammunation (game count key &optional frame)
   (let ((ammunation (add-group game)))
@@ -664,12 +670,15 @@
    layer nil
    zombies-melee nil
    zombies-range nil
+   zombies-boss nil
    bullets nil
    goo-pools nil
    bottom-objs nil
    spawns '()
    create (lambda (game)
-            (let ((map (add-tilemap game "prery")))
+            (let* ((map (add-tilemap game "prery"))
+                   (map-width (// map width))
+                   (map-height (// map height)))
               (map-add-tileset-image map "sand" "tiles-sand")
               (setf (/t layer) (map-create-layer map "layer"))
               (map-set-collision map '(6 7 8 9 10 11) (/t layer))
@@ -678,8 +687,11 @@
               (setf (/t bottom-objs) (add-physics-group game))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
+              (setf (/t zombies-boss) (add-physics-group game))
               (let ((spawn-layer (map-create-layer map "spawns")))
-                (loop for tile in (layer-all-tiles spawn-layer)
+                (loop for tile in (layer-all-tiles spawn-layer
+                                                   (* map-width *tile-size*)
+                                                   (* map-height *tile-size*))
                    do (cond
                         ((eq (tile-spawn-type tile) "zombie-melee")
                          (pushf (/t spawns)
@@ -689,6 +701,10 @@
                          (pushf (/t spawns)
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-range)
                                               *zombie-range-respawn* *range-zombie-desc*)))
+                        ((eq (tile-spawn-type tile) "zombie-boss")
+                         (pushf (/t spawns)
+                                (create-spawn (obj-x tile) (obj-y tile) (/t zombies-boss)
+                                              10000 *boss-zombie-desc*)))
                         (t nil)))
                 (destroy-obj spawn-layer))              
               (setf (/t bullets) (create-ammunation game 30 "bullet"))
@@ -705,14 +721,20 @@
             (collide-objs game (/t player) (/t layer))
             (collide-objs game (/t player) (/t zombies-melee))
             (collide-objs game (/t player) (/t zombies-range))
+            (collide-objs game (/t player) (/t zombies-boss))
             (collide-objs game (/t zombies-melee) (/t layer))
-            (collide-objs game (/t zombies-melee) (/t zombies-melee))
             (collide-objs game (/t zombies-range) (/t layer))
-            (collide-objs game (/t zombies-range) (/t zombies-range))
+            (collide-objs game (/t zombies-boss) (/t layer))
+            (collide-objs game (/t zombies-melee) (/t zombies-melee))
             (collide-objs game (/t zombies-melee) (/t zombies-range))
+            (collide-objs game (/t zombies-melee) (/t zombies-boss))
+            (collide-objs game (/t zombies-range) (/t zombies-range))
+            (collide-objs game (/t zombies-range) (/t zombies-boss))
+            (collide-objs game (/t zombies-boss) (/t zombies-boss))
             (collide-objs game (/t bullets) (/t layer) bullet-hit-wall)
             (let ((melee-group (/t zombies-melee))
                   (range-group (/t zombies-range))
+                  (boss-group (/t zombies-boss)) 
                   (bottom-group (/t bottom-objs)))
               (physics-overlap? game (/t bullets) (/t zombies-melee)
                                 (lambda (bullet zombie)
@@ -721,6 +743,10 @@
               (physics-overlap? game (/t bullets) (/t zombies-range)
                                 (lambda (bullet zombie)
                                   (bullet-hit-enemy bullet zombie range-group bottom-group))
+                                nil nil)
+              (physics-overlap? game (/t bullets) (/t zombies-boss)
+                                (lambda (bullet zombie)
+                                  (bullet-hit-enemy bullet zombie boss-group bottom-group))
                                 nil nil))
             (physics-overlap? game (/t player) (/t goo-pools)
                               (partial goo-pool-hit-player game) nil nil)
