@@ -626,35 +626,6 @@
     (setf (@ spawn zombie) "in-progess"))
   nil)
 
-(defmacro create-zombie-melee (group x y spawn)
-  `(progn
-     (let* ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-melee")))
-       (add-animation zombie "down" '(1 2 3 2) *zombie-melee-framerate*)
-       (add-animation zombie "down-attack" '(4 5) *zombie-melee-framerate*)
-       (add-animation zombie "up" '(7 8 9 8) *zombie-melee-framerate*)
-       (add-animation zombie "up-attack" '(10 11) *zombie-melee-framerate*)
-       (add-animation zombie "right" '(13 14 15 14) *zombie-melee-framerate*)
-       (add-animation zombie "right-attack" '(16 17) *zombie-melee-framerate*)
-       (add-animation zombie "left" '(19 20 21 20) *zombie-melee-framerate*)
-       (add-animation zombie "left-attack" '(22 23) *zombie-melee-framerate*)
-       (setf (@ zombie last-turn-time) 0)
-       (setf (@ zombie spawn) spawn)
-       (setf (@ spawn zombie) zombie))))
-
-(defmacro create-zombie-range (group x y spawn)
-  `(progn
-     (let* ((zombie (create-in ,group (get-x ,x) (get-y ,y) "zombie-range")))
-       (add-animation zombie "down" '(1 2 3 2) *zombie-range-framerate*)
-       (add-animation zombie "down-attack" '(4 5) *zombie-range-framerate*)
-       (add-animation zombie "up" '(7 8 9 8) *zombie-range-framerate*)
-       (add-animation zombie "up-attack" '(10 11) *zombie-range-framerate*)
-       (add-animation zombie "right" '(13 14 15 14) *zombie-range-framerate*)
-       (add-animation zombie "right-attack" '(16 17) *zombie-range-framerate*)
-       (add-animation zombie "left" '(19 20 21 20) *zombie-range-framerate*)
-       (add-animation zombie "left-attack" '(22 23) *zombie-range-framerate*)
-       (setf (@ zombie spawn) spawn)
-       (setf (@ spawn zombie) zombie))))
-
 (defun create-spawn (x y group respawn-time zombie-desc)
   (/c
    x x
