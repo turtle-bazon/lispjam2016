@@ -599,7 +599,6 @@
     (play-animation zombie-spawn "begin")
     (// begin-animation on-complete
         (add (lambda (sprite animation)
-               (log (// spawn zombie-desc))
                (let* ((zombie-desc (// spawn zombie-desc))
                       (type (// zombie-desc type))
                       (framerate (// zombie-desc framerate))
