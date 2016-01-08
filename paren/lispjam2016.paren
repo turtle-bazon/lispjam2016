@@ -822,7 +822,7 @@
    bottom-objs nil
    spawns '()
    create (lambda (game)
-            (setf (@ *audios* music) (add-audio game "music" :loop t))
+            (setf (@ *audios* music) (add-audio game "music" :volume 0.1 :loop t))
             (setf (@ *audios* gunshot) (add-audio game "gunshot"))
             (setf (@ *audios* cowboy-hurt) (add-audio game "cowboy-hurt"))
             (setf (@ *audios* zombie-hurt) (add-audio game "zombie-hurt"))
