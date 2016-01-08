@@ -44,8 +44,8 @@
 (defmacro add-animation (obj name frames frame-rate &optional (loop t))
   `(// ,obj animations (add ,name ,frames ,frame-rate ,loop)))
 
-(defmacro add-audio (game name)
-  `(// ,game add (audio ,name)))
+(defmacro add-audio (game name &optional &key (volume 1) (loop false))
+  `(// ,game add (audio ,name ,volume ,loop)))
 
 (defmacro play-audio (audio)
   `(// ,audio (play)))
@@ -223,6 +223,7 @@
                                *tile-size-goo-pool* *tile-size-goo-pool*)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
+             (load-audio game "music" "assets/sounds/music.ogg")
              (load-audio game "gunshot" "assets/sounds/gunshot.ogg")
              (load-audio game "cowboy-hurt" "assets/sounds/cowboy-hurt.ogg")
              (load-audio game "zombie-hurt" "assets/sounds/zombie-hurt.ogg")
@@ -820,10 +821,12 @@
    bottom-objs nil
    spawns '()
    create (lambda (game)
+            (setf (@ *audios* music) (add-audio game "music" :loop t))
             (setf (@ *audios* gunshot) (add-audio game "gunshot"))
             (setf (@ *audios* cowboy-hurt) (add-audio game "cowboy-hurt"))
             (setf (@ *audios* zombie-hurt) (add-audio game "zombie-hurt"))
 
+            (play-audio (@ *audios* music))
             (let* ((map (add-tilemap game "prery"))
                    (map-width (// map width))
                    (map-height (// map height)))
