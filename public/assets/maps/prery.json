@@ -43,6 +43,7 @@
 
             },
          "spacing":0,
+         "tilecount":13,
          "tileheight":64,
          "tilewidth":64
         }, 
@@ -58,12 +59,13 @@
 
             },
          "spacing":0,
+         "tilecount":32,
          "tileheight":64,
          "tileproperties":
             {
              "0":
                 {
-                 "spawns":"cowboy"
+                 "spawn":"cowboy"
                 }
             },
          "tilewidth":64
@@ -80,6 +82,7 @@
 
             },
          "spacing":0,
+         "tilecount":36,
          "tileheight":64,
          "tileproperties":
             {
@@ -102,6 +105,7 @@
 
             },
          "spacing":0,
+         "tilecount":35,
          "tileheight":64,
          "tileproperties":
             {
@@ -124,6 +128,7 @@
 
             },
          "spacing":0,
+         "tilecount":36,
          "tileheight":64,
          "tileproperties":
             {
@@ -146,6 +151,7 @@
 
             },
          "spacing":0,
+         "tilecount":5,
          "tileheight":64,
          "tilewidth":64
         }],

@@ -89,6 +89,9 @@
 (defmacro camera-follow (game obj)
   `(// ,game camera (follow ,obj)))
 
+(defmacro camera-focus (game x y)
+  `(// ,game camera (focus-on-x-y ,x ,y)))
+
 (defmacro load-map (game name uri)
   `(// ,game load (tilemap ,name ,uri nil (// *Phaser *Tilemap *TILED_JSON*))))
 
@@ -963,6 +966,10 @@
                                                    (* map-width *tile-size*)
                                                    (* map-height *tile-size*))
                    do (cond
+                        ((eq (tile-spawn-type tile) "cowboy")
+                         (create-player game (/t player) (obj-x tile) (obj-y tile))
+                         (camera-focus game (obj-x tile) (obj-y tile))
+                         (camera-follow game (/t player)))
                         ((eq (tile-spawn-type tile) "zombie-melee")
                          (pushf (/t spawns)
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-melee)
@@ -985,13 +992,8 @@
 
               (let ((chicken-leg (create-in (/t medicine) 128 64 "chicken")))
                 (add-animation chicken-leg "being" '(1 2 3 4) 8)
-                (play-animation chicken-leg "being"))
-              
-              )
-            (create-player game (/t player) 28 6)
+                (play-animation chicken-leg "being")))
             (setf (/t cursors) (create-cursors game))
-            (// game camera (focus-on-x-y (get-x 28) (get-y 6)))
-            (camera-follow game (/t player))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
             nil)
