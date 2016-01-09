@@ -195,6 +195,9 @@
 (defmacro contains-point (rectangle x y)
   `(// *Phaser *Rectangle (contains-point ,rectangle (new ((// *Phaser *Point) ,x ,y)))))
 
+(defmacro rand ()
+  `(// *Math (random)))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -237,6 +240,8 @@
              (load-image game "tiles-sand" "assets/tiles/sand.png")
              (load-spritesheet game "chicken" "assets/characters/chicken.png"
                                *tile-size* *tile-size*)
+             (load-spritesheet game "master-gun" "assets/characters/master-gun.png"
+                               *tile-size* *tile-size*)
              (load-audio game "music" "assets/sounds/music.ogg")
              (load-audio game "gunshot" "assets/sounds/gunshot.ogg")
              (load-audio game "cowboy-hurt" "assets/sounds/cowboy-hurt.ogg")
@@ -256,7 +261,30 @@
 (defvar *player-framerate* 8)
 (defvar *player-max-health* 10)
 
+(defvar *master-gun-framerate* 8)
+
 (defvar *chicken-leg-hp* 5)
+(defvar *chicken-leg-drop-rate* 0.05)
+(defvar *chicken-leg-lifetime* 10000)
+(defvar *chicken-leg-framerate* 8)
+
+(defvar *melee-zombie-desc*
+  (/c
+   type "zombie-melee"
+   hp 150
+   framerate 8))
+
+(defvar *range-zombie-desc*
+  (/c
+   type "zombie-range"
+   hp 100
+   framerate 8))
+
+(defvar *boss-zombie-desc*
+  (/c
+   type "zombie-boss"
+   hp 1000
+   framerate 8))
 
 (defvar *zombie-melee-walk-velocity* 10)
 (defvar *zombie-melee-run-velocity* 120)
@@ -370,7 +398,13 @@
     (set-frame player (@ player direction-frame)))
   nil)
 
-(defun kill-zombie (zombie zombie-group bottom-group kill-fn)
+(defmacro add-chicken-leg (game x y)
+  `(let ((chicken-leg (create-in (@ ,game medicine) ,x ,y "chicken")))
+     (setf (@ chicken-leg create-time) (now))
+     (add-animation chicken-leg "being" '(0 1 2 1 0 3 4 3) 8)
+     (play-animation chicken-leg "being")))
+
+(defun kill-zombie (game zombie zombie-group bottom-group kill-fn)
   (let ((zombie-spawn (@ zombie spawn)))
     (// zombie-group (remove zombie))
     (// bottom-group (add zombie))
@@ -383,7 +417,10 @@
     (let ((die-animation (sprite-animation zombie "die")))
       (after-animation die-animation
                        (lambda (sprite animation)
-                         (destroy-obj zombie)
+                         (with-slots (x y) zombie
+                           (when (< (rand) *chicken-leg-drop-rate*)
+                             (add-chicken-leg game x y))
+                           (destroy-obj zombie))                         
                          (when kill-fn
                            (kill-fn zombie zombie-spawn))
                          nil)
@@ -396,7 +433,7 @@
   (let* ((current-hp (@ enemy hp))
          (new-hp (- current-hp *bullet-damage*)))
     (if (<= new-hp 0)
-        (kill-zombie enemy zombie-group bottom-group kill-fn)
+        (kill-zombie game enemy zombie-group bottom-group kill-fn)
         (progn
           (stop-animation enemy)
           (set-frame enemy 24)
@@ -836,24 +873,6 @@
      (add-animation ,player "left" '(16 17 18 17) *player-framerate*)
      (play-animation ,player "down")))
 
-(defvar *melee-zombie-desc*
-  (/c
-   type "zombie-melee"
-   hp 150
-   framerate 8))
-
-(defvar *range-zombie-desc*
-  (/c
-   type "zombie-range"
-   hp 100
-   framerate 8))
-
-(defvar *boss-zombie-desc*
-  (/c
-   type "zombie-boss"
-   hp 1000
-   framerate 8))
-
 (defun spawn-zombie (game spawn)
   (let* ((x (obj-x spawn))
          (y (obj-y spawn))
@@ -938,6 +957,14 @@
     (set-player-health player new-hp))
   nil)
 
+(defun update-medicine (chicken-leg)
+  (when chicken-leg
+    (let ((cur-time (now))
+          (create-time (@ chicken-leg create-time)))
+      (when (> (- cur-time create-time) *chicken-leg-lifetime*)
+        (destroy-obj chicken-leg))))
+  nil)
+
 (defvar play-state
   (/c
    player nil
@@ -968,6 +995,7 @@
               (setf (/t goo-pools) (create-ammunation game 30 "goo-pool"))
               (setf (/t bottom-objs) (add-physics-group game))
               (setf (/t medicine) (add-physics-group game))
+              (setf (@ game medicine) (/t medicine))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (@ game zombies-melee) (/t zombies-melee))
               (setf (/t zombies-range) (add-physics-group game))
@@ -1000,11 +1028,8 @@
               (loop for goo-pool in (@ (/t goo-pools) children)
                  do (setf (@ goo-pool last-damage) 0)
                  ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
-                   )
-
-              (let ((chicken-leg (create-in (/t medicine) 128 64 "chicken")))
-                (add-animation chicken-leg "being" '(1 2 3 4) 8)
-                (play-animation chicken-leg "being")))
+                   ))
+            (add-chicken-leg game (get-x 53) (get-y 30))
             (setf (/t cursors) (create-cursors game))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
@@ -1070,6 +1095,8 @@
             (update-goo-pools game (/t goo-pools))
             (loop for spawn in (/t spawns)
                do (update-spawn game spawn))
+            (loop for chicken-leg in (@ (/t medicine) children)
+               do (update-medicine chicken-leg))
             nil)))
 
 (defvar win-state
