@@ -248,6 +248,7 @@
    ))
 
 (defvar *player-velocity* 300)
+(defvar *player-velocity-diagonal* (/ *player-velocity* 1.4142))
 (defvar *player-max-health* 10)
 (defvar *player-framerate* 8)
 (defvar *player-max-health* 10)
@@ -334,6 +335,30 @@
   (set-direction player -1 0)
   (setf (@ player direction-frame) 15)
   (setf (@ player fire-frame) 19)
+  nil)
+
+(defun player-move-up-right (player)
+  (player-move-right player)
+  (set-velocity player y (- *player-velocity-diagonal*))
+  (set-velocity player x *player-velocity-diagonal*)
+  nil)
+
+(defun player-move-down-right (player)
+  (player-move-right player)
+  (set-velocity player y *player-velocity-diagonal*)
+  (set-velocity player x *player-velocity-diagonal*)
+  nil)
+
+(defun player-move-up-left (player)
+  (player-move-left player)
+  (set-velocity player y (- *player-velocity-diagonal*))
+  (set-velocity player x (- *player-velocity-diagonal*))
+  nil)
+
+(defun player-move-down-left (player)
+  (player-move-left player)
+  (set-velocity player y *player-velocity-diagonal*)
+  (set-velocity player x (- *player-velocity-diagonal*))
   nil)
 
 (defun player-stop (player)
@@ -1011,6 +1036,14 @@
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
+              ((and (key-down? (/t cursors) up)
+                    (key-down? (/t cursors) right)) (player-move-up-right (/t player)))
+              ((and (key-down? (/t cursors) down)
+                    (key-down? (/t cursors) right)) (player-move-down-right (/t player)))
+              ((and (key-down? (/t cursors) up)
+                    (key-down? (/t cursors) left)) (player-move-up-left (/t player)))
+              ((and (key-down? (/t cursors) down)
+                    (key-down? (/t cursors) left)) (player-move-down-left (/t player)))
               ((key-down? (/t cursors) down) (player-move-down (/t player)))
               ((key-down? (/t cursors) up) (player-move-up (/t player)))
               ((key-down? (/t cursors) right) (player-move-right (/t player)))
