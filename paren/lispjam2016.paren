@@ -200,7 +200,7 @@
                                *tile-size* *tile-size*)
              (load-spritesheet game "zombie-range" "assets/characters/zombie-range.png"
                                *tile-size* *tile-size*)
-             (load-spritesheet game "zombie-boss" "assets/characters/zombie-melee.png"
+             (load-spritesheet game "zombie-boss" "assets/characters/zombie-boss.png"
                                *tile-size* *tile-size*)
              (load-spritesheet game "zombie-spawn" "assets/characters/zombie-spawn.png"
                                *tile-size* *tile-size*)
@@ -239,6 +239,13 @@
 (defvar *zombie-range-strength* 0)
 (defvar *zombie-range-attack-interval* 5000)
 (defvar *zombie-range-attack-distance* (get-x 3))
+
+(defvar *zombie-boss-walk-velocity* 10)
+(defvar *zombie-boss-range* (get-x 12))
+(defvar *zombie-boss-turn-interval* 2000)
+(defvar *zombie-boss-spell-damage* 2)
+(defvar *zombie-boss-spell-interval* 3000)
+(defvar *zombie-boss-spell-distance* (get-x 12))
 
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
@@ -332,8 +339,8 @@
   nil)
 
 (defun fire (game player bullets)
-  (when (and (<= (+ *last-fire* *fire-interval*) (@ game time now))
-             (< 0 (// bullets (count-dead))))
+  ;; (<= (+ *last-fire* *fire-interval*) (@ game time now))
+  (when (< 0 (// bullets (count-dead)))
     (setf *last-fire* (@ game time now))
     (setf (@ player fire-state) true)
     (setf (@ player last-fire-time) (now))
@@ -361,24 +368,35 @@
   (+ (square (- (@ obj2 x) (@ obj1 x)))
      (square (- (@ obj2 y) (@ obj1 y)))))
 
+(defun game-over (game)
+  (let* ((x (- (/ (@ game width) 2) 80))
+         (y (- (/ (@ game height) 2) 40))
+         (text (// game add (text x y "GAME OVER" (/c font "32px Arial"
+                                                      fill "#FF0000"
+                                                      align "center")))))
+    (setf (@ text fixed-to-camera) true)))
+
 (defun set-player-health (player health)
   (setf (@ player health) health)
   (setf (@ player health-bar crop-rect width) (* health *health-point-width*))
   (// player health-bar (update-crop)))
 
-(defun hit-player (player damage)
+(defun hit-player (game player damage)
   (when (not (@ player hit-state))
     (setf (@ player hit-state) true)
     (setf (@ player last-hit-time) (now)))  
-  (let ((health (- (@ player health) damage)))
-    (set-player-health player health)))
+  (let ((health (max (- (@ player health) damage) 0)))
+    (set-player-health player health)
+    (when (= 0 health)
+      (game-over game))
+    nil))
 
 (defun zombie-melee-attack (game zombie player)
   (let ((last-attack (@ zombie last-attack))
         (game-time (@ game time now)))
     (when (< (+ last-attack *zombie-melee-attack-interval*) game-time)
       (setf (@ zombie last-attack) game-time)
-      (hit-player player *zombie-melee-strength*))))
+      (hit-player game player *zombie-melee-strength*))))
 
 (defun zombie-melee-patrol (game zombie)
   (when (< (+ (@ zombie last-turn-time) *zombie-melee-turn-interval*)
@@ -434,9 +452,9 @@
           (game-time (@ game time now)))
       (when (< (+ last-damage *goo-pool-damage-interval*) game-time)
         (setf (@ goo-pool last-damage) game-time)
-        (hit-player player (/ (* *goo-pool-damage*
-                                 *goo-pool-damage-interval*)
-                              1000)))))
+        (hit-player game player (/ (* *goo-pool-damage*
+                                      *goo-pool-damage-interval*)
+                                   1000)))))
   ;; (let ((damage (/ (* (@ game time elapsed-m-s)
   ;;                     *goo-pool-damage*)
   ;;                  1000)))
@@ -529,6 +547,72 @@
   (loop for zombie in (@ zombies children)
      do (update-zombie-range game zombie player goo-pools)))
 
+(defun zombie-boss-attack (game zombie player)
+  (let ((last-attack (@ zombie last-attack))
+        (game-time (@ game time now)))
+    (when (< (+ last-attack *zombie-boss-spell-interval*) game-time)
+      (setf (@ zombie last-attack) game-time)
+      (hit-player game player *zombie-boss-spell-damage*))))
+
+(defun zombie-boss-spell-ready? (game zombie)
+  (let ((last-attack (@ zombie last-attack))
+        (game-time (@ game time now)))
+    (< (+ last-attack *zombie-boss-spell-interval*) game-time)))
+
+(defun zombie-boss-patrol (game zombie)
+  (when (< (+ (@ zombie last-turn-time) *zombie-boss-turn-interval*)
+           (@ game time now))
+    (setf (@ zombie last-turn-time) (@ game time now))
+    (let ((direction (random 4))
+          (zombie-velocity *zombie-boss-walk-velocity*))
+      (setf (@ zombie body velocity x) (* *zombie-boss-walk-velocity*
+                                          (cond
+                                            ((= direction 0) 1)
+                                            ((= direction 1) -1)
+                                            (true 0))))
+      (setf (@ zombie body velocity y) (* *zombie-boss-walk-velocity*
+                                          (cond
+                                            ((= direction 2) 1)
+                                            ((= direction 3) -1)
+                                            (true 0))))
+      (cond
+        ((= direction 0) 0)
+        ((= direction 1) 3.14)
+        ((= direction 2) 1.57)
+        ((= direction 3) -1.57)))))
+
+(defun update-zombie-boss (game zombie player)
+  (when (and (not (@ zombie killed))
+             (> (- (now) (@ zombie last-hit-time)) *hit-time*))
+    (let* ((distance-squared (distance-square zombie player))
+           (spell-ready (zombie-boss-spell-ready? game zombie))
+           (attack (and spell-ready
+                        (< distance-squared (square *zombie-boss-spell-distance*))))
+           (player-detected (< distance-squared (square *zombie-boss-range*)))
+           (velocity (cond
+                       (attack 0)
+                       (player-detected *zombie-boss-walk-velocity*)
+                       (true 0)))
+           (angle (if player-detected
+                      (zombie-boss-patrol game zombie)
+                      1.57))
+           (direction (cond
+                        ((or (< angle -2.36) (>= angle 2.36)) "left")
+                        ((< angle -0.79) "up")
+                        ((< angle 0.79) "right")
+                        (true "down")))
+           (animation (if attack
+                          (str direction "-attack")
+                          direction)))
+      (if attack
+          (zombie-boss-attack game zombie player))
+      (when (not (null angle))
+        (play-animation zombie animation)))))
+
+(defun update-zombies-boss (game zombies player)
+  (loop for zombie in (@ zombies children)
+     do (update-zombie-boss game zombie player)))
+
 (defun update-player (player)
   (let* ((cur (now))
          (time-diff (- cur (@ player last-hit-time)))
@@ -552,8 +636,9 @@
   `(progn
      (setf ,player (add-sprite ,game (get-x ,x) (get-y ,y) "player"))
      (setf (@ ,player health) 10)
-     (let* ((health-bar (add-sprite ,game (get-x 1) (get-y 1) "health-bar"))
+     (let* ((health-bar (add-sprite ,game 32 32 "health-bar"))
             (crop-rect (new (// *Phaser (*Rectangle 0 0 (@ health-bar width) (@ health-bar height))))))
+       (setf (@ health-bar fixed-to-camera) true)
        (setf (@ health-bar crop-enabled) true)
        (setf (@ ,player health-bar) health-bar)
        (setf (@ ,player health-bar crop-rect) crop-rect)
@@ -713,9 +798,11 @@
                  ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
                    )
               )
-            (create-player game (/t player) 2 2)
+            (create-player game (/t player) 20 6)
             (setf (/t cursors) (create-cursors game))
             (camera-follow game (/t player))
+            (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
+              (// key on-down (add (partial fire game (/t player) (/t bullets)))))
             nil)
    update (lambda (game)
             (collide-objs game (/t player) (/t layer))
@@ -758,11 +845,10 @@
               ((key-down? (/t cursors) right) (player-move-right (/t player)))
               ((key-down? (/t cursors) left) (player-move-left (/t player)))
               (t (player-stop (/t player))))
-            (when (keyboard-key-down? game *SPACEBAR*)
-              (fire game (/t player) (/t bullets)))
             (update-player (/t player))
             (update-zombies-melee game (/t zombies-melee) (/t player))
             (update-zombies-range game (/t zombies-range) (/t player) (/t goo-pools))
+            (update-zombies-boss game (/t zombies-boss) (/t player))
             (update-goo-pools game (/t goo-pools))
             (loop for spawn in (/t spawns)
                do (update-spawn game spawn))
