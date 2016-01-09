@@ -342,30 +342,33 @@
     (set-frame player (@ player direction-frame)))
   nil)
 
-(defun kill-zombie (zombie zombie-group bottom-group)
-  (// zombie-group (remove zombie))
-  (// bottom-group (add zombie))
-  (setf (@ zombie killed) t)
-  (setf (@ zombie body) f)
-  (setf (@ (@ zombie spawn) zombie) nil)
-  (setf (@ (@ zombie spawn) zombie-killed-time) (now))
-  (setf (@ zombie spawn) nil)
-  (play-animation zombie "die")
-  (let ((die-animation (sprite-animation zombie "die")))
-    (after-animation die-animation
-                     (lambda (sprite animation)               
-                       (destroy-obj zombie)
-                       nil)
-                     this))
+(defun kill-zombie (zombie zombie-group bottom-group kill-fn)
+  (let ((zombie-spawn (@ zombie spawn)))
+    (// zombie-group (remove zombie))
+    (// bottom-group (add zombie))
+    (setf (@ zombie killed) t)
+    (setf (@ zombie body) f)
+    (setf (@ (@ zombie spawn) zombie) nil)
+    (setf (@ (@ zombie spawn) zombie-killed-time) (now))
+    (setf (@ zombie spawn) nil)
+    (play-animation zombie "die")
+    (let ((die-animation (sprite-animation zombie "die")))
+      (after-animation die-animation
+                       (lambda (sprite animation)
+                         (destroy-obj zombie)
+                         (when kill-fn
+                           (kill-fn zombie zombie-spawn))
+                         nil)
+                       this)))
   nil)
 
-(defun bullet-hit-enemy (game bullet enemy zombie-group bottom-group)
+(defun bullet-hit-enemy (game bullet enemy zombie-group bottom-group &optional kill-fn)
   (kill-obj bullet)
   (play-audio (@ *audios* zombie-hurt))
   (let* ((current-hp (@ enemy hp))
          (new-hp (- current-hp *bullet-damage*)))
     (if (<= new-hp 0)
-        (kill-zombie enemy zombie-group bottom-group)
+        (kill-zombie enemy zombie-group bottom-group kill-fn)
         (progn
           (stop-animation enemy)
           (set-frame enemy 24)
@@ -416,6 +419,14 @@
          (text (// game add (text x y "GAME OVER" (/c font "32px Arial"
                                                       fill "#FF0000"
                                                       align "center")))))
+    (setf (@ text fixed-to-camera) true)))
+
+(defun win-win-win (game)
+  (let* ((x (- (/ (@ game width) 2) 80))
+         (y (- (/ (@ game height) 2) 40))
+         (text (// game add (text x y "Congratulations! You've won!" (/c font "32px Arial"
+                                                                         fill "#00FF00"
+                                                                         align "center")))))
     (setf (@ text fixed-to-camera) true)))
 
 (defun set-player-health (player health)
@@ -865,7 +876,8 @@
            (zombie (// spawn zombie))
            (zombie-killed-time (// spawn zombie-killed-time))
            (now (now)))
-      (when (and (eq zombie nil)
+      (when (and respawn-time
+                 (eq zombie nil)
                  (> (- now zombie-killed-time) respawn-time))  
         (spawn-zombie game spawn))
       nil)))
@@ -987,7 +999,10 @@
                                 nil nil)
               (physics-overlap? game (/t bullets) (/t zombies-boss)
                                 (lambda (bullet zombie)
-                                  (bullet-hit-enemy game bullet zombie boss-group bottom-group))
+                                  (bullet-hit-enemy game bullet zombie boss-group bottom-group
+                                                    (lambda (zombie zombie-spawn)
+                                                      (setf (@ zombie-spawn respawn-time) nil)
+                                                      (win-win-win game))))
                                 nil nil))
             (physics-overlap? game (/t player) (/t goo-pools)
                               (partial goo-pool-hit-player game) nil nil)
