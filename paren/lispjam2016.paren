@@ -270,6 +270,7 @@
 (defvar *zombie-boss-spell-damage* 2)
 (defvar *zombie-boss-spell-interval* 3000)
 (defvar *zombie-boss-spell-distance* (get-x 12))
+(defvar *zombie-boss-spell-time* 1000)
 
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
@@ -349,11 +350,6 @@
                      this))
   nil)
 
-(defun stop-attack (game obj)
-  (setf (@ obj busy) false)
-  (setf (@ obj spelling) false)
-  (setf (@ obj last-attack) (@ game time now)))
-
 (defun bullet-hit-enemy (game bullet enemy zombie-group bottom-group)
   (kill-obj bullet)
   (play-audio (@ *audios* zombie-hurt))
@@ -366,7 +362,9 @@
           (set-frame enemy 24)
           (setf (@ enemy last-hit-time) (now))
           (setf (@ enemy hp) new-hp)
-          (stop-attack game enemy))))
+          (let ((on-hit (@ enemy on-hit)))
+            (when on-hit
+              ((@ enemy on-hit) game enemy))))))
   nil)
 
 (defun bullet-hit-wall (bullet wall)
@@ -374,7 +372,6 @@
   nil)
 
 (defun fire (game player bullets)
-  ;; (<= (+ *last-fire* *fire-interval*) (@ game time now))
   (when (< 0 (// bullets (count-dead)))
     (setf *last-fire* (@ game time now))
     (setf (@ player fire-state) true)
@@ -501,12 +498,7 @@
         (setf (@ goo-pool last-damage) game-time)
         (hit-player game player (/ (* *goo-pool-damage*
                                       *goo-pool-damage-interval*)
-                                   1000)))))
-  ;; (let ((damage (/ (* (@ game time elapsed-m-s)
-  ;;                     *goo-pool-damage*)
-  ;;                  1000)))
-  ;;   (hit-player player damage))
-  )
+                                   1000))))))
 
 (defun update-goo-pools (game goo-pools)
   (let ((game-time (@ game time now)))
@@ -603,25 +595,40 @@
       (setf (@ zombie last-attack) game-time)
       (hit-player game player *zombie-boss-spell-damage*))))
 
-(defvar *zombie-boss-spell-time* 1000)
+(defun stop-attack (game obj)
+  (setf (@ obj busy) false)
+  (setf (@ obj last-attack) (@ game time now)))
+
+(defun zombie-boss-stop-spell (game zombie)
+  (when (@ zombie spelling)
+    (stop-animation (@ zombie cast-zombie))
+    (destroy-obj (@ zombie cast-zombie))
+    (setf (@ zombie spelling) false)))
+
+(defun on-zombie-boss-hit (game zombie)
+  (stop-attack game zombie)
+  (zombie-boss-stop-spell game zombie))
+
 (defun zombie-boss-spell (game animation zombie player)
   (let* ((game-time (@ game time now))
          (spell-start (@ zombie spell-start)))
     (if (<= (+ spell-start *zombie-boss-spell-time*) game-time)
-        (progn (zombie-boss-attack game zombie player)
-               (setf (@ zombie spelling) false))
+        (progn
+          (zombie-boss-stop-spell game zombie)
+          (zombie-boss-attack game zombie player))
         (// animation (play)))))
 
 (defun zombie-boss-start-spell (game zombie player animation-name)
   (let ((attack-animation (play-animation zombie animation-name)))
-            (// attack-animation on-complete (remove-all))
-            (after-animation attack-animation
-                             (lambda () (zombie-boss-spell game attack-animation zombie player)))
-            (setf (@ zombie spell-start) (@ game time now))
-            (setf (@ zombie spelling) true))
-  (let* ((boss-cast-zombie (add-sprite game (@ zombie x) (@ zombie y) "boss-cast-zombie"))
+    (// attack-animation on-complete (remove-all))
+    (after-animation attack-animation
+                     (lambda () (zombie-boss-spell game attack-animation zombie player)))
+    (setf (@ zombie spell-start) (@ game time now))
+    (setf (@ zombie spelling) true))
+  (let* ((boss-cast-zombie (add-sprite game (- (@ zombie x) 8) (- (@ zombie y) 12) "boss-cast-zombie"))
          (cast-animation (add-animation boss-cast-zombie "cast" '(0 1 2 3 ) *spawn-framerate* false)))
-    (play-animation boss-cast-zombie "cast" nil false true)))
+    (setf (@ zombie cast-zombie) boss-cast-zombie)
+    (play-animation boss-cast-zombie "cast" nil true false)))
 
 (defun zombie-boss-spell-ready? (game zombie)
   (let ((last-attack (@ zombie last-attack))
@@ -780,7 +787,8 @@
                          (setf (@ zombie spawn) spawn)
                          (setf (@ spawn zombie) zombie)
                          (setf (@ zombie last-attack) 0)
-                         (setf (@ zombie last-hit-time) 0))
+                         (setf (@ zombie last-hit-time) 0)
+                         (setf (@ zombie on-hit) on-zombie-boss-hit))
                        (play-animation zombie-spawn "end")
                        (after-animation end-animation
                                         (lambda (end-sprite end-animation)
