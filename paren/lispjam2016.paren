@@ -685,8 +685,18 @@
 
 (defun zombie-boss-cast-zombie (game zombie player)
   (setf (@ zombie last-cast-zombie) (@ game time now))
-  ;; todo create zombie
-  (hit-player game player *zombie-boss-spell-damage*))
+  (let* ((zombie-type (random 2))
+         (zombies-group (if (= zombie-type 0)
+                            (@ game zombies-melee)
+                            (@ game zombies-range)))
+         (zombies-desc (if (= zombie-type 0)
+                           *melee-zombie-desc*
+                           *range-zombie-desc*))
+         (spawn (create-spawn (/ (/ (+ (obj-x zombie) (obj-x player)) *tile-size*) 2)
+                             (/ (/ (+ (obj-y zombie) (obj-y player)) *tile-size*) 2)
+                             zombies-group
+                       10000 zombies-desc)))
+    (spawn-zombie game spawn)))
 
 (defun zombie-boss-spell-cast-zombie (game animation zombie player)
   (let* ((game-time (@ game time now))
@@ -956,7 +966,9 @@
               (setf (/t bottom-objs) (add-physics-group game))
               (setf (/t medicine) (add-physics-group game))
               (setf (/t zombies-melee) (add-physics-group game))
+              (setf (@ game zombies-melee) (/t zombies-melee))
               (setf (/t zombies-range) (add-physics-group game))
+              (setf (@ game zombies-range) (/t zombies-range))
               (setf (/t zombies-boss) (add-physics-group game))
               (let ((spawn-layer (map-create-layer map "spawns")))
                 (loop for tile in (layer-all-tiles spawn-layer
