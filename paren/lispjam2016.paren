@@ -226,6 +226,8 @@
                                *tile-size-spell* *tile-size-spell*)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
+             (load-spritesheet game "chicken" "assets/characters/chicken.png"
+                               *tile-size* *tile-size*)
              (load-audio game "music" "assets/sounds/music.ogg")
              (load-audio game "gunshot" "assets/sounds/gunshot.ogg")
              (load-audio game "cowboy-hurt" "assets/sounds/cowboy-hurt.ogg")
@@ -242,6 +244,9 @@
 (defvar *player-velocity* 300)
 (defvar *player-max-health* 10)
 (defvar *player-framerate* 8)
+(defvar *player-max-health* 10)
+
+(defvar *chicken-leg-hp* 5)
 
 (defvar *zombie-melee-walk-velocity* 10)
 (defvar *zombie-melee-run-velocity* 120)
@@ -705,7 +710,7 @@
 (defmacro create-player (game player x y)
   `(progn
      (setf ,player (add-sprite ,game (get-x ,x) (get-y ,y) "player"))
-     (setf (@ ,player health) 10)
+     (setf (@ ,player health) *player-max-health*)
      (let* ((health-bar (add-sprite ,game 32 32 "health-bar"))
             (crop-rect (new (// *Phaser (*Rectangle 0 0 (@ health-bar width) (@ health-bar height))))))
        (setf (@ health-bar fixed-to-camera) true)
@@ -818,6 +823,13 @@
     (obj-set-all ammunation "checkWorldBounds" true)
     ammunation))
 
+(defun take-medicine (game player chicken-leg)
+  (destroy-obj chicken-leg)
+  (let* ((possible-hp (+ (@ player health) *chicken-leg-hp*))
+         (new-hp (if (> possible-hp *player-max-health*) *player-max-health* possible-hp)))
+    (set-player-health player new-hp))
+  nil)
+
 (defvar play-state
   (/c
    player nil
@@ -829,6 +841,7 @@
    bullets nil
    goo-pools nil
    bottom-objs nil
+   medicine nil
    spawns '()
    create (lambda (game)
             (setf (@ *audios* music) (add-audio game "music" :volume 0.1 :loop t))
@@ -846,6 +859,7 @@
               (layer-resize-world (/t layer))
               (setf (/t goo-pools) (create-ammunation game 30 "goo-pool"))
               (setf (/t bottom-objs) (add-physics-group game))
+              (setf (/t medicine) (add-physics-group game))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (/t zombies-range) (add-physics-group game))
               (setf (/t zombies-boss) (add-physics-group game))
@@ -873,6 +887,11 @@
                  do (setf (@ goo-pool last-damage) 0)
                  ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
                    )
+
+              (let ((chicken-leg (create-in (/t medicine) 128 64 "chicken")))
+                (add-animation chicken-leg "being" '(1 2 3 4) 8)
+                (play-animation chicken-leg "being"))
+              
               )
             (create-player game (/t player) 28 6)
             (setf (/t cursors) (create-cursors game))
@@ -913,6 +932,8 @@
                                 nil nil))
             (physics-overlap? game (/t player) (/t goo-pools)
                               (partial goo-pool-hit-player game) nil nil)
+            (physics-overlap? game (/t player) (/t medicine)
+                              (partial take-medicine game) nil nil)
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
