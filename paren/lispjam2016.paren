@@ -189,6 +189,9 @@
 (defmacro tile-spawn-type (tile)
   `(@ ,tile properties spawn))
 
+(defmacro contains-point (rectangle x y)
+  `(// *Phaser *Rectangle (contains-point ,rectangle (new ((// *Phaser *Point) ,x ,y)))))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -857,14 +860,15 @@
    zombie-killed-time 0))
 
 (defun update-spawn (game spawn)
-  (let* ((respawn-time (// spawn respawn-time))
-         (zombie (// spawn zombie))
-         (zombie-killed-time (// spawn zombie-killed-time))
-         (now (now)))
-    (when (and (eq zombie nil)
-               (> (- now zombie-killed-time) respawn-time))  
-      (spawn-zombie game spawn))
-    nil))
+  (when (contains-point (@ game camera view) (get-x (@ spawn x)) (get-y (@ spawn y)))
+    (let* ((respawn-time (// spawn respawn-time))
+           (zombie (// spawn zombie))
+           (zombie-killed-time (// spawn zombie-killed-time))
+           (now (now)))
+      (when (and (eq zombie nil)
+                 (> (- now zombie-killed-time) respawn-time))  
+        (spawn-zombie game spawn))
+      nil)))
 
 (defun create-ammunation (game count key &optional frame)
   (let ((ammunation (add-group game)))
@@ -949,6 +953,7 @@
               )
             (create-player game (/t player) 28 6)
             (setf (/t cursors) (create-cursors game))
+            (// game camera (focus-on-x-y (get-x 28) (get-y 6)))
             (camera-follow game (/t player))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
