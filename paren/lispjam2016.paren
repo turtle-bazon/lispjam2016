@@ -224,6 +224,9 @@
                                *tile-size-goo-pool* *tile-size-goo-pool*)
              (load-spritesheet game "boss-cast-zombie" "assets/characters/boss-cast-zombie.png"
                                *tile-size-spell* *tile-size-spell*)
+             (load-spritesheet game "boss-projectile-animated"
+                               "assets/characters/boss-projectile-animated.png"
+                               *tile-size-spell* *tile-size-spell*)
              (load-map game "prery" "assets/maps/prery.json")
              (load-image game "tiles-sand" "assets/tiles/sand.png")
              (load-spritesheet game "chicken" "assets/characters/chicken.png"
@@ -268,9 +271,12 @@
 (defvar *zombie-boss-range* (get-x 12))
 (defvar *zombie-boss-turn-interval* 1000)
 (defvar *zombie-boss-spell-damage* 2)
-(defvar *zombie-boss-spell-interval* 3000)
 (defvar *zombie-boss-spell-distance* (get-x 12))
-(defvar *zombie-boss-spell-time* 1000)
+(defvar *spell-framerate* 8)
+(defvar *zombie-boss-spell-projectile-time* 1200)
+(defvar *zombie-boss-spell-projectile-interval* 3000)
+(defvar *zombie-boss-spell-cast-zombie-time* 1200)
+(defvar *zombie-boss-spell-cast-zombie-interval* 7000)
 
 (defvar *zombie-melee-respawn* 10000)
 (defvar *zombie-range-respawn* 15000)
@@ -588,52 +594,88 @@
   (loop for zombie in (@ zombies children)
      do (update-zombie-range game zombie player goo-pools)))
 
-(defun zombie-boss-attack (game zombie player)
-  (let ((last-attack (@ zombie last-attack))
-        (game-time (@ game time now)))
-    (when (< (+ last-attack *zombie-boss-spell-interval*) game-time)
-      (setf (@ zombie last-attack) game-time)
-      (hit-player game player *zombie-boss-spell-damage*))))
-
 (defun stop-attack (game obj)
   (setf (@ obj busy) false)
   (setf (@ obj last-attack) (@ game time now)))
 
 (defun zombie-boss-stop-spell (game zombie)
   (when (@ zombie spelling)
-    (stop-animation (@ zombie cast-zombie))
-    (destroy-obj (@ zombie cast-zombie))
+    (stop-animation (@ zombie spell))
+    (destroy-obj (@ zombie spell))
     (setf (@ zombie spelling) false)))
 
 (defun on-zombie-boss-hit (game zombie)
   (stop-attack game zombie)
+  (when (@ zombie stop-attack)
+    (// zombie (stop-attack game zombie)))
   (zombie-boss-stop-spell game zombie))
 
-(defun zombie-boss-spell (game animation zombie player)
+
+(defun zombie-boss-projectile (game zombie player)
+  (setf (@ zombie last-projectile) (@ game time now))
+  (hit-player game player *zombie-boss-spell-damage*))
+
+(defun zombie-boss-spell-projectile (game animation zombie player)
   (let* ((game-time (@ game time now))
          (spell-start (@ zombie spell-start)))
-    (if (<= (+ spell-start *zombie-boss-spell-time*) game-time)
+    (if (<= (+ spell-start *zombie-boss-spell-projectile-time*) game-time)
         (progn
           (zombie-boss-stop-spell game zombie)
-          (zombie-boss-attack game zombie player))
+          (zombie-boss-projectile game zombie player))
         (// animation (play)))))
 
-(defun zombie-boss-start-spell (game zombie player animation-name)
-  (let ((attack-animation (play-animation zombie animation-name)))
-    (// attack-animation on-complete (remove-all))
-    (after-animation attack-animation
-                     (lambda () (zombie-boss-spell game attack-animation zombie player)))
+(defun zombie-boss-start-spell-projectile (game zombie player animation-name)
+  (let ((zombie-animation (play-animation zombie animation-name)))
+    (// zombie-animation on-complete (remove-all))
+    (after-animation zombie-animation
+                     (lambda () (zombie-boss-spell-projectile game zombie-animation zombie player)))
     (setf (@ zombie spell-start) (@ game time now))
-    (setf (@ zombie spelling) true))
-  (let* ((boss-cast-zombie (add-sprite game (- (@ zombie x) 8) (- (@ zombie y) 12) "boss-cast-zombie"))
-         (cast-animation (add-animation boss-cast-zombie "cast" '(0 1 2 3 ) *spawn-framerate* false)))
-    (setf (@ zombie cast-zombie) boss-cast-zombie)
-    (play-animation boss-cast-zombie "cast" nil true false)))
+    (setf (@ zombie spelling) true)
+    (setf (@ zombie stop-attack) (lambda (game zombie)
+                                   (setf (@ zombie last-projectile) (@ game time now)))))
+  (let* ((spell (add-sprite game (- (@ zombie x) 8) (- (@ zombie y) 12) "boss-projectile-animated"))
+         (spell-animation (add-animation spell "spell" '(7 6 5 4 3 2 1 0) *spell-framerate* false)))
+    (setf (@ zombie spell) spell)
+    (play-animation spell "spell" nil true false)))
 
-(defun zombie-boss-spell-ready? (game zombie)
-  (let ((last-attack (@ zombie last-attack))
+(defun zombie-boss-spell-projectile-ready? (game zombie)
+  (let ((last-projectile (@ zombie last-projectile))
         (game-time (@ game time now)))
-    (< (+ last-attack *zombie-boss-spell-interval*) game-time)))
+    (< (+ last-projectile *zombie-boss-spell-projectile-interval*) game-time)))
+
+
+(defun zombie-boss-cast-zombie (game zombie player)
+  (setf (@ zombie last-cast-zombie) (@ game time now))
+  ;; todo create zombie
+  (hit-player game player *zombie-boss-spell-damage*))
+
+(defun zombie-boss-spell-cast-zombie (game animation zombie player)
+  (let* ((game-time (@ game time now))
+         (spell-start (@ zombie spell-start)))
+    (if (<= (+ spell-start *zombie-boss-spell-cast-zombie-time*) game-time)
+        (progn
+          (zombie-boss-stop-spell game zombie)
+          (zombie-boss-cast-zombie game zombie player))
+        (// animation (play)))))
+
+(defun zombie-boss-start-spell-cast-zombie (game zombie player animation-name)
+  (let ((zombie-animation (play-animation zombie animation-name)))
+    (// zombie-animation on-complete (remove-all))
+    (after-animation zombie-animation
+                     (lambda () (zombie-boss-spell-cast-zombie game zombie-animation zombie player)))
+    (setf (@ zombie spell-start) (@ game time now))
+    (setf (@ zombie spelling) true)
+    (setf (@ zombie stop-attack) (lambda (game zombie)
+                                   (setf (@ zombie last-cast-zombie) (@ game time now)))))
+  (let* ((spell (add-sprite game (- (@ zombie x) 8) (- (@ zombie y) 12) "boss-cast-zombie"))
+         (spell-animation (add-animation spell "spell" '(0 1 2 3) *spell-framerate* false)))
+    (setf (@ zombie spell) spell)
+    (play-animation spell "spell" nil true false)))
+
+(defun zombie-boss-spell-cast-zombie-ready? (game zombie)
+  (let ((last-cast-zombie (@ zombie last-cast-zombie))
+        (game-time (@ game time now)))
+    (< (+ last-cast-zombie *zombie-boss-spell-cast-zombie-interval*) game-time)))
 
 (defun zombie-boss-patrol (game zombie)
   (when (< (+ (@ zombie last-turn-time) *zombie-boss-turn-interval*)
@@ -667,8 +709,9 @@
              (not (@ zombie killed))
              (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
-           (spell-ready (zombie-boss-spell-ready? game zombie))
-           (attack (and spell-ready
+           (projectile-ready (zombie-boss-spell-projectile-ready? game zombie))
+           (cast-zombie-ready (zombie-boss-spell-cast-zombie-ready? game zombie))
+           (attack (and (or projectile-ready cast-zombie-ready)
                         (< distance-squared (square *zombie-boss-spell-distance*))))
            (player-detected (< distance-squared (square *zombie-boss-range*)))
            (velocity (cond
@@ -686,10 +729,11 @@
            (animation (if attack
                           (str direction "-attack")
                           direction)))
-      (if attack
-          (zombie-boss-start-spell game zombie player animation)
-          (when (not (null angle))
-            (play-animation zombie animation))))))
+      (cond
+        (projectile-ready (zombie-boss-start-spell-projectile game zombie player animation))
+        (cast-zombie-ready (zombie-boss-start-spell-cast-zombie game zombie player animation))
+        (true (when (not (null angle))
+                (play-animation zombie animation)))))))
 
 (defun update-zombies-boss (game zombies player)
   (loop for zombie in (@ zombies children)
@@ -787,6 +831,8 @@
                          (setf (@ zombie spawn) spawn)
                          (setf (@ spawn zombie) zombie)
                          (setf (@ zombie last-attack) 0)
+                         (setf (@ zombie last-projectile) 0)
+                         (setf (@ zombie last-cast-zombie) 0)
                          (setf (@ zombie last-hit-time) 0)
                          (setf (@ zombie on-hit) on-zombie-boss-hit))
                        (play-animation zombie-spawn "end")
