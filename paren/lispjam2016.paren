@@ -503,14 +503,18 @@
 
 (defun game-over (game)
   (setf (@ game game-state) *game-over*)
-  (let* ((x (- (/ (@ game width) 2) 80))
+  (let* ((x (- (/ (@ game width) 2) 90))
          (y (- (/ (@ game height) 2) 40))
          (text (// game add (text x y "GAME OVER" (/c font "32px Arial"
                                                       fill "#FF0000"
                                                       align "center")))))
     (setf (@ text fixed-to-camera) true))
-  (with-timeout (*game-restart-timeout*)
-    (change-state game "play")))
+  (let* ((x (- (/ (@ game width) 2) 110))
+         (y (- (/ (@ game height) 2) 0))
+         (text (// game add (text x y "press R to play again" (/c font "24px Arial"
+                                                      fill "#FF0000"
+                                                      align "center")))))
+    (setf (@ text fixed-to-camera) true)))
 
 (defun win-win-win (game)
   (setf (@ game game-state) *win*)
@@ -519,6 +523,12 @@
          (text (// game add (text x y "Congratulations! You've won!" (/c font "32px Arial"
                                                                          fill "#00FF00"
                                                                          align "center")))))
+    (setf (@ text fixed-to-camera) true))
+  (let* ((x (- (/ (@ game width) 2) 110))
+         (y (- (/ (@ game height) 2) 0))
+         (text (// game add (text x y "press R to play again" (/c font "24px Arial"
+                                                      fill "#00FF00"
+                                                      align "center")))))
     (setf (@ text fixed-to-camera) true)))
 
 (defun set-player-health (player health)
@@ -1130,8 +1140,16 @@
               (loop for goo-pool in (@ (/t goo-pools) children)
                  do (setf (@ goo-pool last-damage) 0)))
             (setf (/t cursors) (create-cursors game))
-            (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
-              (// key on-down (add (partial fire game (/t player) (/t bullets)))))
+            (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*))))
+                  (player (/t player))
+                  (bullets (/t bullets)))
+              (// key on-down (add (lambda ()
+                                     (when (= (@ game game-state) *playing*)
+                                       (fire game player bullets))))))
+            (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *R*)))))
+              (// key on-down (add (lambda ()
+                                     (when (not (= (@ game game-state) *playing*))
+                                       (change-state game "play"))))))
             (setf (@ game game-state) *playing*)
             nil)
    update (lambda (game)
