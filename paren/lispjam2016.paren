@@ -198,6 +198,9 @@
 (defmacro rand ()
   `(// *Math (random)))
 
+(defmacro with-timeout ((timeout) &rest body)
+  `(set-timeout (lambda () ,@body) ,timeout))
+
 (setf (// window onload) init)
 
 (defvar boot-state
@@ -260,8 +263,11 @@
 (defvar *player-max-health* 10)
 (defvar *player-framerate* 8)
 (defvar *player-max-health* 10)
+(defvar *generic-gun-type* 0)
+(defvar *master-gun-type* 1)
 
 (defvar *master-gun-framerate* 8)
+(defvar *master-gun-delay* 50)
 
 (defvar *chicken-leg-hp* 5)
 (defvar *chicken-leg-drop-rate* 0.05)
@@ -448,27 +454,33 @@
   (kill-obj bullet)
   nil)
 
+(defun fire-bullet (player bullets)
+  (stop-animation player)
+  (play-audio (@ *audios* gunshot))
+  (let ((bullet (// bullets (get-first-dead))))
+    (// bullet (reset (+ (@ player x)
+                         (/ (@ player width) 2))
+                      (+ (@ player y)
+                         (/ (@ player height) 2))))
+    (setf (@ bullet body velocity x)
+          (* *bullet-velocity* (get-direction-x player)))
+    (setf (@ bullet body velocity y)
+          (* *bullet-velocity* (get-direction-y player)))
+    (setf (@ bullet angle) (cond
+                             ((= (get-direction-x player) 1) 0)
+                             ((= (get-direction-y player) 1) 90) 
+                             ((= (get-direction-x player) -1) 180)
+                             ((= (get-direction-y player) -1) 270)))))
+
 (defun fire (game player bullets)
   (when (< 0 (// bullets (count-dead)))
     (setf *last-fire* (@ game time now))
     (setf (@ player fire-state) true)
     (setf (@ player last-fire-time) (now))
-    (stop-animation player)
-    (play-audio (@ *audios* gunshot))
-    (let ((bullet (// bullets (get-first-dead))))
-      (// bullet (reset (+ (@ player x)
-                           (/ (@ player width) 2))
-                        (+ (@ player y)
-                           (/ (@ player height) 2))))
-      (setf (@ bullet body velocity x)
-            (* *bullet-velocity* (get-direction-x player)))
-      (setf (@ bullet body velocity y)
-            (* *bullet-velocity* (get-direction-y player)))
-      (setf (@ bullet angle) (cond
-                               ((= (get-direction-x player) 1) 0)
-                               ((= (get-direction-y player) 1) 90) 
-                               ((= (get-direction-x player) -1) 180)
-                               ((= (get-direction-y player) -1) 270)))))
+    (fire-bullet player bullets)
+    (when (= (@ player gun-type) *master-gun-type*)
+      (with-timeout (*master-gun-delay*)
+             (fire-bullet player bullets))))
   nil)
 
 (defun square (x)
@@ -837,7 +849,7 @@
         ((< time-diff *tint-time*)
          (setf (@ player tint) 0xff00ff))
         ((< time-diff (* 2 *tint-time*))
-         (setf (@ player tint) 0xffffff))
+         (setf (@ player tint) (@ player current-tint)))
         (t (setf (@ player hit-state) false))))
     (when (@ player fire-state)
       (if (< fire-diff *fire-time*)
@@ -865,6 +877,8 @@
      (setf (@ ,player last-hit-time) 0)
      (setf (@ ,player direction-frame) 0)
      (setf (@ ,player fire-frame) 4)
+     (setf (@ ,player current-tint) 0xffffff)
+     (setf (@ ,player gun-type) *generic-gun-type*)
      (physics-enable ,game ,player)
      (set-collide-world ,player)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
@@ -965,6 +979,18 @@
         (destroy-obj chicken-leg))))
   nil)
 
+(defun add-master-gun (master-guns x y)
+  (let ((master-gun (create-in master-guns x y "master-gun")))
+    (add-animation master-gun "being" '(0 1 2 1 0 3 4 3) *master-gun-framerate*)
+    (play-animation master-gun "being"))
+  nil)
+
+(defun take-master-gun (player master-gun)
+  (destroy-obj master-gun)
+  (setf (@ player tint) 0xa0ffff)
+  (setf (@ player current-tint) 0xa0ffff)
+  (setf (@ player gun-type) *master-gun-type*))
+
 (defvar play-state
   (/c
    player nil
@@ -977,6 +1003,7 @@
    goo-pools nil
    bottom-objs nil
    medicine nil
+   master-guns nil
    spawns '()
    create (lambda (game)
             (setf (@ *audios* music) (add-audio game "music" :volume 0.1 :loop t))
@@ -996,6 +1023,8 @@
               (setf (/t bottom-objs) (add-physics-group game))
               (setf (/t medicine) (add-physics-group game))
               (setf (@ game medicine) (/t medicine))
+              (setf (/t master-guns) (add-physics-group game))
+              (setf (@ game master-guns) (/t master-guns))
               (setf (/t zombies-melee) (add-physics-group game))
               (setf (@ game zombies-melee) (/t zombies-melee))
               (setf (/t zombies-range) (add-physics-group game))
@@ -1010,6 +1039,8 @@
                          (create-player game (/t player) (obj-x tile) (obj-y tile))
                          (camera-focus game (obj-x tile) (obj-y tile))
                          (camera-follow game (/t player)))
+                        ((eq (tile-spawn-type tile) "master-gun")
+                         (add-master-gun (/t master-guns) (get-x (obj-x tile)) (get-y (obj-y tile))))
                         ((eq (tile-spawn-type tile) "zombie-melee")
                          (pushf (/t spawns)
                                 (create-spawn (obj-x tile) (obj-y tile) (/t zombies-melee)
@@ -1029,7 +1060,6 @@
                  do (setf (@ goo-pool last-damage) 0)
                  ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
                    ))
-            (add-chicken-leg game (get-x 53) (get-y 30))
             (setf (/t cursors) (create-cursors game))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
@@ -1072,6 +1102,8 @@
                               (partial goo-pool-hit-player game) nil nil)
             (physics-overlap? game (/t player) (/t medicine)
                               (partial take-medicine game) nil nil)
+            (physics-overlap? game (/t player) (/t master-guns)
+                              take-master-gun nil nil)
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
             (cond
