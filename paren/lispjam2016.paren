@@ -292,6 +292,8 @@
    hp 1000
    framerate 8))
 
+(defvar *zombie-stop-distance* 65)
+
 (defvar *zombie-melee-walk-velocity* 10)
 (defvar *zombie-melee-run-velocity* 120)
 (defvar *zombie-melee-range* (get-x 4))
@@ -557,12 +559,18 @@
         ((= direction 2) 1.57)
         ((= direction 3) -1.57)))))
 
+(defun zombie-stop (zombie)
+  (setf (@ zombie body velocity x) 0)
+  (setf (@ zombie body velocity y) 0))
+
 (defun update-zombie-melee (game zombie player)
   (when (and (not (@ zombie busy))
              (not (@ zombie killed))
              (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
-           (attack (< distance-squared (square *zombie-melee-attack-distance*)))
+           (attack (and (< (abs (- (@ zombie x) (@ player x))) *zombie-melee-attack-distance*)
+                        (< (abs (- (@ zombie y) (@ player y))) *zombie-melee-attack-distance*)))
+           ;; (attack (< distance-squared (square *zombie-melee-attack-distance*)))
            (player-detected (< distance-squared (square *zombie-melee-range*)))
            (velocity (cond
                        (attack 0)
@@ -581,6 +589,7 @@
                           direction)))
       (if attack
           (let ((attack-animation (play-animation zombie animation)))
+            (zombie-stop zombie)
             (after-animation attack-animation
                              (lambda ()
                                (zombie-melee-attack game zombie player)
@@ -658,17 +667,21 @@
              (not (@ zombie killed))
              (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
+           (stop-move (and (< (abs (- (@ zombie x) (@ player x))) *zombie-stop-distance*)
+                           (< (abs (- (@ zombie y) (@ player y))) *zombie-stop-distance*)))
            (attack-ready (zombie-range-attack-ready? game zombie))
            (attack (and attack-ready
                         (< distance-squared (square *zombie-range-attack-distance*))))
            (player-detected (< distance-squared (square *zombie-range-range*)))
            (velocity (cond
+                       (stop-move 0)
                        (attack 0)
                        (player-detected *zombie-range-run-velocity*)
                        (true *zombie-range-walk-velocity*)))
-           (angle (if (and player-detected attack-ready)
-                      (// game physics arcade (move-to-object zombie player velocity))
-                      (zombie-range-patrol game zombie)))
+           (angle (cond (stop-move (zombie-stop zombie))
+                        ((and player-detected attack-ready)
+                         (// game physics arcade (move-to-object zombie player velocity)))
+                        (true (zombie-range-patrol game zombie))))
            (direction (cond
                         ((or (< angle -2.36) (>= angle 2.36)) "left")
                         ((< angle -0.79) "up")
@@ -816,6 +829,8 @@
              (not (@ zombie killed))
              (> (- (now) (@ zombie last-hit-time)) *hit-time*))
     (let* ((distance-squared (distance-square zombie player))
+           (stop-move (and (< (abs (- (@ zombie x) (@ player x))) *zombie-stop-distance*)
+                           (< (abs (- (@ zombie y) (@ player y))) *zombie-stop-distance*)))
            (projectile-ready (zombie-boss-spell-projectile-ready? game zombie))
            (cast-zombie-ready (zombie-boss-spell-cast-zombie-ready? game zombie))
            (attack (and (or projectile-ready cast-zombie-ready)
@@ -825,7 +840,7 @@
                        (attack 0)
                        (player-detected *zombie-boss-walk-velocity*)
                        (true 0)))
-           (angle (if (and player-detected (not attack))
+           (angle (if (and player-detected (not attack) (not stop-move))
                       (zombie-boss-patrol game zombie)
                       (zombie-boss-stop game zombie)))
            (direction (cond
@@ -887,7 +902,6 @@
      (setf (@ ,player gun-type) *generic-gun-type*)
      (physics-enable ,game ,player)
      (set-collide-world ,player)
-     (setf (@ ,player body immovable) true)
      (add-animation ,player "down" '(1 2 3 2) *player-framerate*)
      (add-animation ,player "up" '(6 7 8 7) *player-framerate*)
      (add-animation ,player "right" '(11 12 13 12) *player-framerate*)
