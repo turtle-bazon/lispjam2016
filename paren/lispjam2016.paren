@@ -270,14 +270,14 @@
 (defvar *master-gun-delay* 50)
 
 (defvar *chicken-leg-hp* 5)
-(defvar *chicken-leg-drop-rate* 0.05)
+(defvar *chicken-leg-drop-rate* 0.10)
 (defvar *chicken-leg-lifetime* 10000)
 (defvar *chicken-leg-framerate* 8)
 
 (defvar *melee-zombie-desc*
   (/c
    type "zombie-melee"
-   hp 150
+   hp 200
    framerate 8))
 
 (defvar *range-zombie-desc*
@@ -321,8 +321,8 @@
 (defvar *zombie-boss-spell-cast-zombie-time* 1200)
 (defvar *zombie-boss-spell-cast-zombie-interval* 7000)
 
-(defvar *zombie-melee-respawn* 10000)
-(defvar *zombie-range-respawn* 15000)
+(defvar *zombie-melee-respawn* 20000)
+(defvar *zombie-range-respawn* 30000)
 
 (defvar *goo-pool-framerate* 1)
 (defvar *goo-pool-live-time* 3000)
