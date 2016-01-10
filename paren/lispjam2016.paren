@@ -338,6 +338,10 @@
 (defvar *tint-time* 100)
 (defvar *hit-time* 100)
 
+(defvar *game-over* 1)
+(defvar *win* 2)
+(defvar *playing* 3)
+
 (defvar *audios*
   (/t
    ))
@@ -491,6 +495,7 @@
      (square (- (@ obj2 y) (@ obj1 y)))))
 
 (defun game-over (game)
+  (setf (@ game game-state) *game-over*)
   (let* ((x (- (/ (@ game width) 2) 80))
          (y (- (/ (@ game height) 2) 40))
          (text (// game add (text x y "GAME OVER" (/c font "32px Arial"
@@ -499,6 +504,7 @@
     (setf (@ text fixed-to-camera) true)))
 
 (defun win-win-win (game)
+  (setf (@ game game-state) *win*)
   (let* ((x (- (/ (@ game width) 2) 80))
          (y (- (/ (@ game height) 2) 40))
          (text (// game add (text x y "Congratulations! You've won!" (/c font "32px Arial"
@@ -1063,6 +1069,7 @@
             (setf (/t cursors) (create-cursors game))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
+            (setf (@ game game-state) *playing*)
             nil)
    update (lambda (game)
             (collide-objs game (/t player) (/t layer))
@@ -1106,7 +1113,8 @@
                               take-master-gun nil nil)
             (set-velocity (/t player) x 0)
             (set-velocity (/t player) y 0)
-            (cond
+            (when (= (@ game game-state) *playing*)
+              (cond
               ((and (key-down? (/t cursors) up)
                     (key-down? (/t cursors) right)) (player-move-up-right (/t player)))
               ((and (key-down? (/t cursors) down)
@@ -1120,15 +1128,15 @@
               ((key-down? (/t cursors) right) (player-move-right (/t player)))
               ((key-down? (/t cursors) left) (player-move-left (/t player)))
               (t (player-stop (/t player))))
-            (update-player (/t player))
-            (update-zombies-melee game (/t zombies-melee) (/t player))
-            (update-zombies-range game (/t zombies-range) (/t player) (/t goo-pools))
-            (update-zombies-boss game (/t zombies-boss) (/t player))
-            (update-goo-pools game (/t goo-pools))
-            (loop for spawn in (/t spawns)
-               do (update-spawn game spawn))
-            (loop for chicken-leg in (@ (/t medicine) children)
-               do (update-medicine chicken-leg))
+              (update-player (/t player))
+              (update-zombies-melee game (/t zombies-melee) (/t player))
+              (update-zombies-range game (/t zombies-range) (/t player) (/t goo-pools))
+              (update-zombies-boss game (/t zombies-boss) (/t player))
+              (update-goo-pools game (/t goo-pools))
+              (loop for spawn in (/t spawns)
+                 do (update-spawn game spawn))
+              (loop for chicken-leg in (@ (/t medicine) children)
+                 do (update-medicine chicken-leg)))
             nil)))
 
 (defvar win-state
