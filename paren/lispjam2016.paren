@@ -1020,7 +1020,7 @@
            (now (now)))
       (when (and respawn-time
                  (eq zombie nil)
-                 (> (- now zombie-killed-time) respawn-time))  
+                 (> (- now zombie-killed-time) respawn-time))
         (spawn-zombie game spawn))
       nil)))
 
@@ -1108,7 +1108,9 @@
                    do (cond
                         ((eq (tile-spawn-type tile) "cowboy")
                          (create-player game (/t player) (obj-x tile) (obj-y tile))
-                         (camera-focus game (obj-x tile) (obj-y tile))
+                         (with-slots (x y width height) (@ game camera)
+                           (setf x (- (get-x (obj-x tile)) (/ width 2)))
+                           (setf y (- (get-y (obj-y tile)) (/ height 2))))
                          (camera-follow game (/t player)))
                         ((eq (tile-spawn-type tile) "master-gun")
                          (add-master-gun (/t master-guns) (get-x (obj-x tile)) (get-y (obj-y tile))))
