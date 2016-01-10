@@ -269,7 +269,7 @@
 (defvar *master-gun-framerate* 8)
 (defvar *master-gun-delay* 50)
 
-(defvar *chicken-leg-hp* 5)
+(defvar *chicken-leg-hp* 3)
 (defvar *chicken-leg-drop-rate* 0.10)
 (defvar *chicken-leg-lifetime* 10000)
 (defvar *chicken-leg-framerate* 8)
@@ -298,7 +298,7 @@
 (defvar *zombie-melee-run-velocity* 120)
 (defvar *zombie-melee-range* (get-x 4))
 (defvar *zombie-melee-turn-interval* 2000)
-(defvar *zombie-melee-strength* 1)
+(defvar *zombie-melee-strength* 3)
 (defvar *zombie-melee-attack-interval* 1000)
 (defvar *zombie-melee-attack-distance* 70)
 
@@ -326,7 +326,7 @@
 
 (defvar *goo-pool-framerate* 16)
 (defvar *goo-pool-live-time* 3000)
-(defvar *goo-pool-damage* 0.4)
+(defvar *goo-pool-damage* 1)
 (defvar *goo-pool-damage-interval* 100)
 
 (defvar *spawn-framerate* 8)
