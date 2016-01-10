@@ -1108,9 +1108,7 @@
                    do (cond
                         ((eq (tile-spawn-type tile) "cowboy")
                          (create-player game (/t player) (obj-x tile) (obj-y tile))
-                         (with-slots (x y width height) (@ game camera)
-                           (setf x (- (get-x (obj-x tile)) (/ width 2)))
-                           (setf y (- (get-y (obj-y tile)) (/ height 2))))
+                         (camera-focus game (get-x (obj-x tile)) (get-y (obj-y tile)))
                          (camera-follow game (/t player)))
                         ((eq (tile-spawn-type tile) "master-gun")
                          (add-master-gun (/t master-guns) (get-x (obj-x tile)) (get-y (obj-y tile))))
