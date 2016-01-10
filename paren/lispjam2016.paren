@@ -185,6 +185,15 @@
 (defmacro str (&rest values)
   `(concatenate 'string ,@values))
 
+(defmacro state-add-audio (var name)
+  `(when (not (@ *audios* ,var))
+    (setf (@ *audios* ,var) (add-audio game ,name))))
+
+(defmacro state-add-music (var name)
+  `(when (not (@ *audios* ,var))
+    (setf (@ *audios* ,var) (add-audio game ,name :volume 0.1 :loop t))
+    (play-audio (@ *audios* ,var))))
+
 (defun partial (func &rest args1)
   (lambda (&rest args2)
     (apply func (append args1 args2))))
@@ -249,6 +258,8 @@
              (load-audio game "gunshot" "assets/sounds/gunshot.ogg")
              (load-audio game "cowboy-hurt" "assets/sounds/cowboy-hurt.ogg")
              (load-audio game "zombie-hurt" "assets/sounds/zombie-hurt.ogg")
+             (load-audio game "eat-chicken" "assets/sounds/eat-chicken.ogg")
+             (load-audio game "get-master-gun" "assets/sounds/get-master-gun.ogg")
              nil)
    create (lambda (game)
             (change-state game "play")
@@ -291,7 +302,7 @@
 (defvar *boss-zombie-desc*
   (/c
    type "zombie-boss"
-   hp 10000
+   hp 1000
    framerate 8))
 
 (defvar *zombie-stop-distance* 65)
@@ -315,7 +326,7 @@
 (defvar *zombie-boss-walk-velocity* 200)
 (defvar *zombie-boss-range* (get-x 12))
 (defvar *zombie-boss-turn-interval* 1000)
-(defvar *zombie-boss-spell-damage* 2)
+(defvar *zombie-boss-spell-damage* 1)
 (defvar *zombie-boss-spell-distance* (get-x 12))
 (defvar *spell-framerate* 8)
 (defvar *zombie-boss-spell-projectile-time* 1200)
@@ -1060,6 +1071,7 @@
   (let* ((possible-hp (+ (@ player health) *chicken-leg-hp*))
          (new-hp (if (> possible-hp *player-max-health*) *player-max-health* possible-hp)))
     (set-player-health player new-hp))
+  (play-audio (@ *audios* eat-chicken))
   nil)
 
 (defun update-medicine (chicken-leg)
@@ -1080,7 +1092,9 @@
   (destroy-obj master-gun)
   (setf (@ player tint) 0xa0ffff)
   (setf (@ player current-tint) 0xa0ffff)
-  (setf (@ player gun-type) *master-gun-type*))
+  (setf (@ player gun-type) *master-gun-type*)
+  (play-audio (@ *audios* get-master-gun))
+  nil)
 
 (defvar play-state
   (/c
@@ -1097,12 +1111,13 @@
    master-guns nil
    spawns '()
    create (lambda (game)
-            (setf (@ *audios* music) (add-audio game "music" :volume 0.1 :loop t))
-            (setf (@ *audios* gunshot) (add-audio game "gunshot"))
-            (setf (@ *audios* cowboy-hurt) (add-audio game "cowboy-hurt"))
-            (setf (@ *audios* zombie-hurt) (add-audio game "zombie-hurt"))
+            (state-add-music music "music")
+            (state-add-audio gunshot "gunshot")
+            (state-add-audio cowboy-hurt "cowboy-hurt")
+            (state-add-audio zombie-hurt "zombie-hurt")
+            (state-add-audio eat-chicken "eat-chicken")
+            (state-add-audio get-master-gun "get-master-gun")
 
-            (play-audio (@ *audios* music))
             (let* ((map (add-tilemap game "prery"))
                    (map-width (// map width))
                    (map-height (// map height)))
