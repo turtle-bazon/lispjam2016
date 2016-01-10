@@ -529,6 +529,8 @@
   (let ((health (max (- (@ player health) damage) 0)))
     (set-player-health player health)
     (when (= 0 health)
+      (setf (@ player body) nil)
+      (play-animation player "die")
       (game-over game))
     nil))
 
@@ -938,6 +940,7 @@
      (add-animation ,player "up" '(6 7 8 7) *player-framerate*)
      (add-animation ,player "right" '(11 12 13 12) *player-framerate*)
      (add-animation ,player "left" '(16 17 18 17) *player-framerate*)
+     (add-animation ,player "die" '(20 21 22 23 24 25 26 27 28 29 30 31) *player-framerate* false)
      (play-animation ,player "down")))
 
 (defun spawn-zombie (game spawn)
@@ -1157,9 +1160,9 @@
                               (partial take-medicine game) nil nil)
             (physics-overlap? game (/t player) (/t master-guns)
                               take-master-gun nil nil)
-            (set-velocity (/t player) x 0)
-            (set-velocity (/t player) y 0)
             (when (= (@ game game-state) *playing*)
+              (set-velocity (/t player) x 0)
+              (set-velocity (/t player) y 0)
               (cond
                 ((and (key-down? (/t cursors) up)
                       (key-down? (/t cursors) right)) (player-move-up-right (/t player)))
