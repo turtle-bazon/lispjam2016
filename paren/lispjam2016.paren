@@ -1200,7 +1200,9 @@
                  do (update-spawn game spawn))
               (loop for chicken-leg in (@ (/t medicine) children)
                  do (update-medicine chicken-leg)))
-            nil)))
+            nil)
+   shutdown (lambda (game)
+              (setf (/t spawns) '()))))
 
 (defvar win-state
   (/c
