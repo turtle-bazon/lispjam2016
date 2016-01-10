@@ -509,7 +509,7 @@
 
 (defun win-win-win (game)
   (setf (@ game game-state) *win*)
-  (let* ((x (- (/ (@ game width) 2) 80))
+  (let* ((x (- (/ (@ game width) 2) 200))
          (y (- (/ (@ game height) 2) 40))
          (text (// game add (text x y "Congratulations! You've won!" (/c font "32px Arial"
                                                                          fill "#00FF00"
