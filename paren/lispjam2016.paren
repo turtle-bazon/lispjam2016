@@ -232,7 +232,7 @@
              (load-image game "bullet" "assets/characters/bullet.png")
              (load-image game "health-bar" "assets/characters/health-bar.png")
              (load-image game "goo-pool" "assets/characters/goo-pool.png")
-             (load-spritesheet game "goo-pool-animated" "assets/characters/goo-pool-animated.png"
+             (load-spritesheet game "goo-pool-animated" "assets/characters/goo-pool-animated-32.png"
                                *tile-size-goo-pool* *tile-size-goo-pool*)
              (load-spritesheet game "boss-cast-zombie" "assets/characters/boss-cast-zombie.png"
                                *tile-size-spell* *tile-size-spell*)
@@ -324,7 +324,7 @@
 (defvar *zombie-melee-respawn* 20000)
 (defvar *zombie-range-respawn* 30000)
 
-(defvar *goo-pool-framerate* 1)
+(defvar *goo-pool-framerate* 16)
 (defvar *goo-pool-live-time* 3000)
 (defvar *goo-pool-damage* 0.4)
 (defvar *goo-pool-damage-interval* 100)
@@ -570,7 +570,6 @@
     (let* ((distance-squared (distance-square zombie player))
            (attack (and (< (abs (- (@ zombie x) (@ player x))) *zombie-melee-attack-distance*)
                         (< (abs (- (@ zombie y) (@ player y))) *zombie-melee-attack-distance*)))
-           ;; (attack (< distance-squared (square *zombie-melee-attack-distance*)))
            (player-detected (< distance-squared (square *zombie-melee-range*)))
            (velocity (cond
                        (attack 0)
@@ -619,21 +618,38 @@
                      (< (+ (@ goo-pool creation-time) *goo-pool-live-time*) game-time))
             (kill-obj goo-pool)))))
 
-(defun fire-goo-pool (game player goo-pools)
+(defun place-goo-pool (game goo-pool x y)
+  (// goo-pool (reset x y))
+  (setf (@ goo-pool creation-time) (@ game time now)))
+
+(defun zombie-range-spell-goo-pool (game zombie player goo-pool)
+  (let* ((spell (add-sprite game (+ (@ zombie x) 20) (+ (@ zombie y) 0) "goo-pool-animated"))
+         (spell-animation (add-animation spell "spell" '(10 9 8 7 6 5 4 3 2 1 0) *goo-pool-framerate* false))
+         (distance (// game physics arcade (distance-between zombie player)))
+         (velocity (/ distance (/ 11 *goo-pool-framerate*)))
+         (destination-x (+ (@ player x)
+                         (/ (@ player width) 2)))
+         (destination-y (+ (@ player y)
+                         (/ (@ player height) 2))))
+    (after-animation spell-animation
+                     (lambda ()
+                       (place-goo-pool game goo-pool destination-x destination-y)))
+    (setf (@ zombie spell) spell)
+    (physics-enable game spell)
+    (play-animation spell "spell" nil false true)
+    (// game physics arcade (move-to-x-y spell (+ (@ player x) 16) (+ (@ player y) 16) velocity))))
+
+(defun fire-goo-pool (game zombie player goo-pools)
   (let ((goo-pool (// goo-pools (get-first-dead))))
     (when goo-pool
-      (// goo-pool (reset (+ (@ player x)
-                             (/ (@ player width) 2))
-                          (+ (@ player y)
-                             (/ (@ player height) 2))))
-      (setf (@ goo-pool creation-time) (@ game time now)))))
+      (zombie-range-spell-goo-pool game zombie player goo-pool))))
 
 (defun zombie-range-attack (game zombie player goo-pools)
   (let ((last-attack (@ zombie last-attack))
         (game-time (@ game time now)))
     (when (< (+ last-attack *zombie-range-attack-interval*) game-time)
       (setf (@ zombie last-attack) game-time)
-      (fire-goo-pool game player goo-pools))))
+      (fire-goo-pool game zombie player goo-pools))))
 
 (defun zombie-range-attack-ready? (game zombie)
   (let ((last-attack (@ zombie last-attack))
@@ -1079,9 +1095,7 @@
                 (destroy-obj spawn-layer))              
               (setf (/t bullets) (create-ammunation game 30 "bullet"))
               (loop for goo-pool in (@ (/t goo-pools) children)
-                 do (setf (@ goo-pool last-damage) 0)
-                 ;; (add-animation goo-pool "down" '(1 2 3 4 5 6) *goo-pool-framerate*)
-                   ))
+                 do (setf (@ goo-pool last-damage) 0)))
             (setf (/t cursors) (create-cursors game))
             (let ((key (// game input keyboard (add-key (@ *Phaser *Keyboard *SPACEBAR*)))))
               (// key on-down (add (partial fire game (/t player) (/t bullets)))))
