@@ -315,7 +315,7 @@
 (defvar *zombie-boss-walk-velocity* 200)
 (defvar *zombie-boss-range* (get-x 12))
 (defvar *zombie-boss-turn-interval* 1000)
-(defvar *zombie-boss-spell-damage* 2)
+(defvar *zombie-boss-spell-damage* 1)
 (defvar *zombie-boss-spell-distance* (get-x 12))
 (defvar *spell-framerate* 8)
 (defvar *zombie-boss-spell-projectile-time* 1200)
