@@ -323,6 +323,7 @@
 (defvar *zombie-boss-spell-cast-zombie-time* 1200)
 (defvar *zombie-boss-spell-cast-zombie-interval* 7000)
 (defvar *teleporting-range* (get-x 4)) ;; relative to spawn
+(defvar *teleporting-timeout* 100)
 
 (defvar *zombie-melee-respawn* 20000)
 (defvar *zombie-range-respawn* 30000)
@@ -752,13 +753,22 @@
   (setf (@ zombie x) (+ (@ zombie origin-x) (random (* *teleporting-range* 2)) (- *teleporting-range*)))
   (setf (@ zombie y) (+ (@ zombie origin-y) (random (* *teleporting-range* 2)) (- *teleporting-range*))))
 
+(defun zombie-boss-start-teleport (game zombie)
+  (if (@ zombie teleport-start)
+      (progn
+        (clear-timeout (@ zombie teleport-start))
+        (setf (@ zombie teleport-start) nil)
+        (zombie-boss-teleport game zombie))
+      (setf (@ zombie teleport-start) (with-timeout (*teleporting-timeout*)
+                                        (zombie-boss-teleport game zombie)))))
+
 (defun on-zombie-boss-hit (game zombie)
   (stop-attack game zombie)
   (when (@ zombie stop-attack)
     (// zombie (stop-attack game zombie)))
   (when (= (@ zombie zombie-type) "zombie-boss")
     (zombie-boss-stop-spell game zombie)
-    (zombie-boss-teleport game zombie)))
+    (zombie-boss-start-teleport game zombie)))
 
 (defun blow-up-projectile (game player x y)
   (hit-player game player *zombie-boss-spell-damage*))
