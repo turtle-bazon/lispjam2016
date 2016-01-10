@@ -258,6 +258,8 @@
   (/c
    ))
 
+(defvar *game-restart-timeout* 10000)
+
 (defvar *player-velocity* 300)
 (defvar *player-velocity-diagonal* (/ *player-velocity* 1.4142))
 (defvar *player-max-health* 10)
@@ -505,7 +507,9 @@
          (text (// game add (text x y "GAME OVER" (/c font "32px Arial"
                                                       fill "#FF0000"
                                                       align "center")))))
-    (setf (@ text fixed-to-camera) true)))
+    (setf (@ text fixed-to-camera) true))
+  (with-timeout (*game-restart-timeout*)
+    (change-state game "play")))
 
 (defun win-win-win (game)
   (setf (@ game game-state) *win*)
