@@ -302,7 +302,7 @@
 (defvar *boss-zombie-desc*
   (/c
    type "zombie-boss"
-   hp 1000
+   hp 5000
    framerate 8))
 
 (defvar *zombie-stop-distance* 65)
